@@ -3,7 +3,7 @@ process GENERATE_PE {
     label 'process_high'
 
     conda "${moduleDir}/environment.yml"
-    container 'biocorecrg/parse_pe_ont:4.0'
+    container 'docker://biocorecrg/parse_pe_ont:4.0'
 
     input:
     tuple val(meta),   path(reads)
@@ -17,7 +17,7 @@ process GENERATE_PE {
 
     script:
     def args          = task.ext.args ?: ''
-    def sample_name   = reads.name.replaceAll(/\.fq\.gz$/, '')
+    def sample_name   = reads.name.replaceAll(/\.fq$/, '')
     meta_updated = meta + [single_end: false]
 
     """
