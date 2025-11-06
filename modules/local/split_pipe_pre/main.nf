@@ -7,8 +7,8 @@ process SPLITPIPE_PRE {
 
     input:
     tuple val(meta),   path(reads)
-    tuple val(meta2),  path(index)
-    tuple val(meta3),  path(parfile_parse)
+    path(index)
+    path(parfile_parse)
     
     output:
     tuple val(meta_updated), path("${meta.id}/process/barcode_head.fastq.gz")               , emit: out
@@ -30,8 +30,8 @@ process SPLITPIPE_PRE {
     """
     split-pipe \
        --mode pre --one_step ${args}  \
-       --genome_dir ${index} \
        ${input_reads} \
+       --genome_dir ${index} \
        --output_dir ${prefix} \
        ${parfile} \
        --nthreads ${task.cpus}
