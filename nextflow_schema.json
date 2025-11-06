@@ -194,6 +194,7 @@
                     "description": "Minimizer k-mer length.",
                     "fa_icon": "fas fa-barcode"
                 }
+            },
         },
         "mapping": {
             "title": "Mapping",
@@ -472,6 +473,9 @@
         },
         {
             "$ref": "#/$defs/cell_barcode_options"
+        },
+        {
+            "$ref": "#/$defs/parse"
         },
         {
             "$ref": "#/$defs/mapping"
