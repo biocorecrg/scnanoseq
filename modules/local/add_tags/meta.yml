@@ -1,0 +1,5 @@
+name: add_tags
+description: Module to add cell barcodes and UMI into bam file records, using the information of the read header.
+tools:
+  - add_tags:
+      description: Script that parses the CB and UMI from the read reader and it appends them in the bam file record.

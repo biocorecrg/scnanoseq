@@ -1,0 +1,5 @@
+name: generate_pe
+description: Module for generating PE reads from long read sequencing data from Parse datasets
+tools:
+  - generate_pe:
+      description: Splits long reads into two PE reads, one containing the barcodes and the other, the biological sequence.
