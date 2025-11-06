@@ -1,0 +1,6 @@
+name: split_pipe_pre
+description: Module for using split pipe tool for single cell analysis of PARSE data
+tools:
+  - split_pipe:
+      description: Parse Biosciences offers a computational pipeline that processes your FASTQ files, handling essential tasks such as barcode correction, read alignment, read deduplication, and transcript quantification
+      homepage: https://support.parsebiosciences.com/hc/en-us/articles/27066395947412-How-Do-I-Analyze-my-Parse-Biosciences-Data
