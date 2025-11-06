@@ -176,7 +176,24 @@
                 }
             },
             "fa_icon": "fas fa-microscope",
-            "required": ["barcode_format", "dedup_tool"]
+            "required": ["dedup_tool"]
+        },
+        "parse": {
+            "title": "Parse related options",
+            "type": "object",
+            "description": "Options related to the processing of Parse datasets.",
+            "default": "",
+            "properties": {
+                "parse_generate_pe": {
+                    "type": "string",
+                    "description": "Library strandness option.",
+                    "fa_icon": "fas fa-dna"
+                },
+                "parse_spipe": {
+                    "type": "string",
+                    "description": "Minimizer k-mer length.",
+                    "fa_icon": "fas fa-barcode"
+                }
         },
         "mapping": {
             "title": "Mapping",
