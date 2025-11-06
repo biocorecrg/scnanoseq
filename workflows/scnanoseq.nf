@@ -67,12 +67,17 @@ include { NANOFILT                          } from "../modules/local/nanofilt"
 include { SPLIT_FILE                        } from "../modules/local/split_file"
 include { SPLIT_FILE as SPLIT_FILE_BC_FASTQ } from "../modules/local/split_file"
 include { SPLIT_FILE as SPLIT_FILE_BC_CSV   } from "../modules/local/split_file"
+include { SPLIT_FILE as SPLIT_FILE_PARSE    } from "../modules/local/split_file"
 include { BLAZE                             } from "../modules/local/blaze"
 include { PREEXTRACT_FASTQ                  } from "../modules/local/preextract_fastq.nf"
 include { READ_COUNTS                       } from "../modules/local/read_counts.nf"
 include { CORRECT_BARCODES                  } from "../modules/local/correct_barcodes"
 include { UCSC_GTFTOGENEPRED                } from "../modules/local/ucsc_gtftogenepred"
 include { UCSC_GENEPREDTOBED                } from "../modules/local/ucsc_genepredtobed"
+
+include { GENERATE_PE                       } from "../modules/local/generate_PE/main"
+include { SPLITPIPE_PRE                     } from "../modules/local/split_pipe_pre/main"
+
 
 //
 // SUBWORKFLOW: Consisting of a mix of local and nf-core/modules
@@ -100,6 +105,7 @@ include { CAT_CAT                                       } from "../modules/nf-co
 include { CAT_CAT as CAT_CAT_PREEXTRACT                 } from "../modules/nf-core/cat/cat/main"
 include { CAT_CAT as CAT_CAT_BARCODE                    } from "../modules/nf-core/cat/cat/main"
 include { CAT_FASTQ                                     } from "../modules/nf-core/cat/fastq/main"
+include { CAT_FASTQ as CAT_FASTQ_PARSE                  } from "../modules/nf-core/cat/fastq/main"
 include { paramsSummaryMap                              } from "plugin/nf-schema"
 
 /*
@@ -239,6 +245,7 @@ workflow SCNANOSEQ {
     ch_fastqc_multiqc_postrim = Channel.empty()
     ch_trimmed_reads_combined = Channel.empty()
 
+    // NOTE: this block of code, doesn't have much sense as it splits and later concatenates without any filtering?
     if (!params.skip_trimming){
         //
         // MODULE: Split fastq
@@ -258,7 +265,7 @@ workflow SCNANOSEQ {
         }
 
         ch_trimmed_reads = ch_fastqs
-        if (!params.skip_trimming) {
+        if (!params.skip_trimming) { // This if here doesnt have sense, as if skip_trimming was true, it won't enter this if entry
 
             NANOFILT ( ch_fastqs )
             ch_trimmed_reads = NANOFILT.out.reads
@@ -292,100 +299,145 @@ workflow SCNANOSEQ {
         ch_trimmed_reads_combined = ch_unzipped_fastqs
     }
 
-    //
-    // MODULE: Unzip whitelist
-    //
+    // DEMULTIPLEXING MODULES:
 
-    // NOTE: Blaze does not support '.gzip'
-    ch_blaze_whitelist = blaze_whitelist
+    if (params.platform == "10X"){
+        //
+        // MODULE: Unzip whitelist
+        //
 
-    if (blaze_whitelist.endsWith('.gz')){
+        // NOTE: Blaze does not support '.gzip'
+        ch_blaze_whitelist = blaze_whitelist
 
-        GUNZIP_WHITELIST ( [[:], blaze_whitelist ])
+        if (blaze_whitelist.endsWith('.gz')){
 
-        ch_blaze_whitelist =
-            GUNZIP_WHITELIST.out.file
-                .map {
-                    meta, whitelist ->
-                    [whitelist]
-                }
+            GUNZIP_WHITELIST ( [[:], blaze_whitelist ])
 
-        ch_versions = ch_versions.mix(GUNZIP_WHITELIST.out.versions)
+            ch_blaze_whitelist =
+                GUNZIP_WHITELIST.out.file
+                    .map {
+                        meta, whitelist ->
+                        [whitelist]
+                    }
+
+            ch_versions = ch_versions.mix(GUNZIP_WHITELIST.out.versions)
+        }
+
+        //
+        // MODULE: Generate whitelist
+        //
+
+        BLAZE ( ch_trimmed_reads_combined, ch_blaze_whitelist )
+
+        ch_putative_bc = BLAZE.out.putative_bc
+        ch_gt_whitelist = BLAZE.out.whitelist
+        ch_whitelist_bc_count = BLAZE.out.bc_count
+        ch_versions = ch_versions.mix(BLAZE.out.versions)
+
+        ch_split_bc_fastqs = ch_trimmed_reads_combined
+        ch_split_bc = ch_putative_bc
+        if (params.split_amount > 0) {
+            SPLIT_FILE_BC_FASTQ( ch_trimmed_reads_combined, '.fastq', params.split_amount )
+
+            SPLIT_FILE_BC_FASTQ.out.split_files
+                .transpose()
+                .set { ch_split_bc_fastqs }
+
+            ch_versions = ch_versions.mix(SPLIT_FILE_BC_FASTQ.out.versions)
+
+            SPLIT_FILE_BC_CSV ( ch_putative_bc, '.csv', (params.split_amount / 4) )
+            SPLIT_FILE_BC_CSV.out.split_files
+                .transpose()
+                .set { ch_split_bc }
+        }
+
+
+        //
+        // MODULE: Extract barcodes
+        //
+
+        PREEXTRACT_FASTQ( ch_split_bc_fastqs.join(ch_split_bc), params.barcode_format )
+        ch_barcode_info = PREEXTRACT_FASTQ.out.barcode_info
+        ch_preextract_fastq = PREEXTRACT_FASTQ.out.extracted_fastq
+
+        //
+        // MODULE: Correct Barcodes
+        //
+
+        CORRECT_BARCODES (
+            ch_barcode_info
+                .combine ( ch_gt_whitelist, by: 0)
+                .combine ( ch_whitelist_bc_count, by: 0 )
+        )
+        ch_corrected_bc_file = CORRECT_BARCODES.out.corrected_bc_info
+        ch_versions = ch_versions.mix(CORRECT_BARCODES.out.versions)
+
+        ch_extracted_fastq = ch_preextract_fastq
+        ch_corrected_bc_info = ch_corrected_bc_file
+
+        if (params.split_amount > 0){
+            //
+            // MODULE: Cat Preextract
+            //
+            CAT_CAT_PREEXTRACT(ch_preextract_fastq.groupTuple())
+            ch_cat_preextract_fastq = CAT_CAT_PREEXTRACT.out.file_out
+
+            //
+            // MODULE: Cat barcode file
+            //
+            CAT_CAT_BARCODE (ch_corrected_bc_file.groupTuple())
+            ch_corrected_bc_info = CAT_CAT_BARCODE.out.file_out
+
+            //
+            // MODULE: Zip the reads
+            //
+            PIGZ_COMPRESS (ch_cat_preextract_fastq )
+            ch_extracted_fastq = PIGZ_COMPRESS.out.archive
+            ch_versions = ch_versions.mix(PIGZ_COMPRESS.out.versions)
+        }
+
+    } else if (params.platform == "Parse") {
+        
+        // Split fastq files:
+        if (params.split_amount > 0) {
+            SPLIT_FILE_PARSE(ch_trimmed_reads_combined, '.fq', params.split_amount )
+
+            // Temporarily change the meta object so that the id is present on the
+            // fastq to prevent duplicated names
+            SPLIT_FILE_PARSE.out.split_files
+                .transpose()
+                .set { ch_split_parse }
+
+            ch_versions = ch_versions.mix(SPLIT_FILE_PARSE.out.versions)
+        }
+
+        // Generate artificial PE reads:
+        ch_pe_parse = GENERATE_PE(ch_split_parse)
+        ch_versions = ch_versions.mix(ch_pe_parse.versions)
+
+        // Concatenate PE reads:
+        ch_to_concat = ch_pe_parse.out.groupTuple(by:0).map{ meta, reads ->
+                                            def read_list = reads.flatten()
+                                            [meta, read_list]}
+
+        ch_concatenated = CAT_FASTQ_PARSE(ch_to_concat)
+        ch_versions = ch_versions.mix(ch_concatenated.versions)
+
+        // Run spipe to generate the corrected fastq:
+        spipe_params_file = file("$baseDir/assets/parfile_parse.txt")
+        spipe_mock_genome_dir = "$baseDir/assets/mock_genome_parse"
+
+        ch_extracted_fastq = SPLITPIPE_PRE(ch_concatenated.reads, spipe_mock_genome_dir, spipe_params_file)
+        ch_versions = ch_versions.mix(ch_extracted_fastq.versions)
+
+        ch_extracted_fastq.out.view()
+
+    } else {
+        exit 1, "Single cell platform not recognized. You can choose either 10X, Parse or Argentag.\n"
     }
 
-    //
-    // MODULE: Generate whitelist
-    //
 
-    BLAZE ( ch_trimmed_reads_combined, ch_blaze_whitelist )
-
-    ch_putative_bc = BLAZE.out.putative_bc
-    ch_gt_whitelist = BLAZE.out.whitelist
-    ch_whitelist_bc_count = BLAZE.out.bc_count
-    ch_versions = ch_versions.mix(BLAZE.out.versions)
-
-    ch_split_bc_fastqs = ch_trimmed_reads_combined
-    ch_split_bc = ch_putative_bc
-    if (params.split_amount > 0) {
-        SPLIT_FILE_BC_FASTQ( ch_trimmed_reads_combined, '.fastq', params.split_amount )
-
-        SPLIT_FILE_BC_FASTQ.out.split_files
-            .transpose()
-            .set { ch_split_bc_fastqs }
-
-        ch_versions = ch_versions.mix(SPLIT_FILE_BC_FASTQ.out.versions)
-
-        SPLIT_FILE_BC_CSV ( ch_putative_bc, '.csv', (params.split_amount / 4) )
-        SPLIT_FILE_BC_CSV.out.split_files
-            .transpose()
-            .set { ch_split_bc }
-    }
-
-
-    //
-    // MODULE: Extract barcodes
-    //
-
-    PREEXTRACT_FASTQ( ch_split_bc_fastqs.join(ch_split_bc), params.barcode_format )
-    ch_barcode_info = PREEXTRACT_FASTQ.out.barcode_info
-    ch_preextract_fastq = PREEXTRACT_FASTQ.out.extracted_fastq
-
-    //
-    // MODULE: Correct Barcodes
-    //
-
-    CORRECT_BARCODES (
-        ch_barcode_info
-            .combine ( ch_gt_whitelist, by: 0)
-            .combine ( ch_whitelist_bc_count, by: 0 )
-    )
-    ch_corrected_bc_file = CORRECT_BARCODES.out.corrected_bc_info
-    ch_versions = ch_versions.mix(CORRECT_BARCODES.out.versions)
-
-    ch_extracted_fastq = ch_preextract_fastq
-    ch_corrected_bc_info = ch_corrected_bc_file
-
-    if (params.split_amount > 0){
-        //
-        // MODULE: Cat Preextract
-        //
-        CAT_CAT_PREEXTRACT(ch_preextract_fastq.groupTuple())
-        ch_cat_preextract_fastq = CAT_CAT_PREEXTRACT.out.file_out
-
-        //
-        // MODULE: Cat barcode file
-        //
-        CAT_CAT_BARCODE (ch_corrected_bc_file.groupTuple())
-        ch_corrected_bc_info = CAT_CAT_BARCODE.out.file_out
-
-        //
-        // MODULE: Zip the reads
-        //
-        PIGZ_COMPRESS (ch_cat_preextract_fastq )
-        ch_extracted_fastq = PIGZ_COMPRESS.out.archive
-        ch_versions = ch_versions.mix(PIGZ_COMPRESS.out.versions)
-    }
-
+    """
     //
     // SUBWORKFLOW: Fastq QC with Nanoplot and FastQC - post-extract QC
     //
@@ -600,12 +652,13 @@ workflow SCNANOSEQ {
         ch_multiqc_report = MULTIQC_FINALQC.out.report
         ch_versions    = ch_versions.mix(MULTIQC_FINALQC.out.versions)
     }
-
+    """
     emit:
     multiqc_report = ch_multiqc_report.toList()
     versions       = ch_versions
+    
 }
-
+    
 
 /*
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
