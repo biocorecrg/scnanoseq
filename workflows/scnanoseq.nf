@@ -430,14 +430,13 @@ workflow SCNANOSEQ {
         ch_extracted_fastq = SPLITPIPE_PRE(ch_concatenated.reads, spipe_mock_genome_dir, spipe_params_file)
         ch_versions = ch_versions.mix(ch_extracted_fastq.versions)
 
-        ch_extracted_fastq.out.view()
+        ch_extracted_fastq = ch_extracted_fastq.out
+        ch_corrected_bc_info = Channel.empty()
 
     } else {
         exit 1, "Single cell platform not recognized. You can choose either 10X, Parse or Argentag.\n"
     }
 
-
-    """
     //
     // SUBWORKFLOW: Fastq QC with Nanoplot and FastQC - post-extract QC
     //
@@ -499,13 +498,16 @@ workflow SCNANOSEQ {
             params.dedup_tool,
             true, // Used to indicate the bam is genome aligned
             params.fasta_delimiter,
+            params.platform,
             params.skip_save_minimap2_index,
             params.skip_qc,
             params.skip_rseqc,
             params.skip_bam_nanocomp,
             params.skip_seurat,
             params.skip_dedup
-        )
+        )}
+    
+        """"
         ch_versions = ch_versions.mix(PROCESS_LONGREAD_SCRNA_GENOME.out.versions)
 
         ch_multiqc_finalqc_files = ch_multiqc_finalqc_files.mix(

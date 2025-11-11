@@ -3,7 +3,7 @@ process ADD_TAGS {
     label 'process_medium'
 
     conda "${moduleDir}/environment.yml"
-    container 'biocorecrg/pysam:0.3'
+    container 'docker://biocorecrg/pysam:0.3'
 
     input:
     tuple val(meta), path(bam_file)

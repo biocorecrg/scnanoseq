@@ -17,6 +17,7 @@ include { SAMTOOLS_INDEX as SAMTOOLS_INDEX_DEDUP        } from '../../modules/nf
 include { SAMTOOLS_VIEW as SAMTOOLS_FILTER_DEDUP        } from '../../modules/nf-core/samtools/view'
 
 include { TAG_BARCODES } from '../../modules/local/tag_barcodes'
+include { ADD_TAGS } from '../../modules/local/add_tags/main'
 
 
 workflow PROCESS_LONGREAD_SCRNA {
@@ -31,6 +32,8 @@ workflow PROCESS_LONGREAD_SCRNA {
         dedup_tool      // str: Name of deduplication tool to use
         genome_aligned  // bool: Whether the bam is aligned to the genome or not
         fasta_delimiter // str: Delimiter character used in sequence id in fasta
+
+        platform // str: Technology used to generate the datasets
 
         skip_save_minimap2_index // bool: Skip saving the minimap2 index
         skip_qc                  // bool: Skip qc steps
@@ -62,25 +65,36 @@ workflow PROCESS_LONGREAD_SCRNA {
         //
         // MODULE: Tag Barcodes
         //
-
-        TAG_BARCODES (
+        if (platform == '10X') {
+            TAG_BARCODES (
             ALIGN_LONGREADS.out.sorted_bam
                 .join( ALIGN_LONGREADS.out.sorted_bai, by: 0 )
                 .join( read_bc_info, by: 0)
-        )
-        ch_versions = ch_versions.mix(TAG_BARCODES.out.versions)
+            ).set {ch_tagged_bam}
+            ch_versions = ch_versions.mix(TAG_BARCODES.out.versions)
 
+        } else if (platform == 'Parse') {
+            ch_tagged_bam = ADD_TAGS(ALIGN_LONGREADS.out.sorted_bam)
+            ch_versions = ch_versions.mix(ch_tagged_bam.versions)
+            ch_tagged_bam.out.view()
+
+        } else {
+            exit 1, "Single cell platform not recognized. You can choose either 10X, Parse or Argentag.\n"
+        }
+        
+
+        """
         //
         // MODULE: Index Tagged Bam
         //
-        SAMTOOLS_INDEX_TAGGED ( TAG_BARCODES.out.tagged_bam )
+        SAMTOOLS_INDEX_TAGGED ( ch_tagged_bam.out.tagged_bam )
         ch_versions = ch_versions.mix(SAMTOOLS_INDEX_TAGGED.out.versions)
 
         //
         // MODULE: Flagstat Tagged Bam
         //
         SAMTOOLS_FLAGSTAT_TAGGED (
-            TAG_BARCODES.out.tagged_bam
+            ch_tagged_bam.out.tagged_bam
                 .join( SAMTOOLS_INDEX_TAGGED.out.bai, by: [0])
         )
         ch_versions = ch_versions.mix(SAMTOOLS_FLAGSTAT_TAGGED.out.versions)
@@ -95,7 +109,7 @@ workflow PROCESS_LONGREAD_SCRNA {
                 fasta,
                 fai,
                 gtf,
-                TAG_BARCODES.out.tagged_bam,
+                ch_tagged_bam.out.tagged_bam,
                 SAMTOOLS_INDEX_TAGGED.out.bai,
                 true, // Used to split the bam
                 genome_aligned,
@@ -109,7 +123,7 @@ workflow PROCESS_LONGREAD_SCRNA {
             ch_versions = DEDUP_UMIS.out.versions
         } else {
 
-            ch_bam = TAG_BARCODES.out.tagged_bam
+            ch_bam = ch_tagged_bam.out.tagged_bam
             ch_bai = SAMTOOLS_INDEX_TAGGED.out.bai
             ch_flagstat = SAMTOOLS_FLAGSTAT_TAGGED.out.flagstat
                 .map{
@@ -155,7 +169,7 @@ workflow PROCESS_LONGREAD_SCRNA {
             ch_gene_qc_stats = QUANTIFY_SCRNA_ISOQUANT.out.gene_qc_stats
             ch_transcript_qc_stats = QUANTIFY_SCRNA_ISOQUANT.out.transcript_qc_stats
         }
-
+        
     emit:
         // Versions
         versions                 = ch_versions
@@ -183,4 +197,5 @@ workflow PROCESS_LONGREAD_SCRNA {
         // Seurat QC Stats
         gene_qc_stats            = ch_gene_qc_stats
         transcript_qc_stats      = ch_transcript_qc_stats
+    """
 }
