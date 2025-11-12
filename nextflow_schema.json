@@ -194,7 +194,20 @@
                     "description": "Minimizer k-mer length.",
                     "fa_icon": "fas fa-barcode"
                 }
-            },
+            }
+        },
+        "argentag": {
+            "title": "Parse related options",
+            "type": "object",
+            "description": "Options related to the processing of Argentag datasets.",
+            "default": "",
+            "properties": {
+                "argentag_taggy_demux": {
+                    "type": "string",
+                    "description": "Demux parameters for taggy_demux",
+                    "fa_icon": "fas fa-dna"
+                }
+            }
         },
         "mapping": {
             "title": "Mapping",

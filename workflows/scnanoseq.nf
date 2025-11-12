@@ -78,6 +78,8 @@ include { UCSC_GENEPREDTOBED                } from "../modules/local/ucsc_genepr
 include { GENERATE_PE                       } from "../modules/local/generate_PE/main"
 include { SPLITPIPE_PRE                     } from "../modules/local/split_pipe_pre/main"
 
+include { ARGENTAG_SPLIT                    } from "../modules/local/argentag/split/main"
+include { ARGENTAG_TAGGY_DEMUX              } from "../modules/local/argentag/taggy_demux/main"
 
 //
 // SUBWORKFLOW: Consisting of a mix of local and nf-core/modules
@@ -433,10 +435,24 @@ workflow SCNANOSEQ {
         ch_extracted_fastq = ch_extracted_fastq.out
         ch_corrected_bc_info = Channel.empty()
 
+    } else if (params.platform == "Argentag") {
+
+        // Run chimera splitting:
+        ch_chimera_splitted = ARGENTAG_SPLIT(ch_trimmed_reads_combined)
+        ch_versions = ch_versions.mix(ch_chimera_splitted.versions)
+
+        // Run taggy demux to generate the corrected fastq:
+        ch_extracted_fastq = ARGENTAG_TAGGY_DEMUX(ch_chimera_splitted.out)
+        ch_versions = ch_versions.mix(ch_extracted_fastq.versions)
+
+        ch_extracted_fastq = ch_extracted_fastq.out
+        ch_corrected_bc_info = Channel.empty()
+        ch_extracted_fastq.view()
+
     } else {
         exit 1, "Single cell platform not recognized. You can choose either 10X, Parse or Argentag.\n"
     }
-
+    
     //
     // SUBWORKFLOW: Fastq QC with Nanoplot and FastQC - post-extract QC
     //
@@ -507,7 +523,7 @@ workflow SCNANOSEQ {
             params.skip_dedup
         )}
     
-        """"
+        """
         ch_versions = ch_versions.mix(PROCESS_LONGREAD_SCRNA_GENOME.out.versions)
 
         ch_multiqc_finalqc_files = ch_multiqc_finalqc_files.mix(
