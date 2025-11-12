@@ -10,6 +10,7 @@ import pysam
 
 def extract_tags(read_name, delimiter):
     """Extract the cell barcode from read name using the given delimiter."""
+    
     try:
         return read_name.split(delimiter)[-2], read_name.split(delimiter)[-1]
 
@@ -37,7 +38,12 @@ def main():
             read.set_tag("CB", cb, value_type='Z')
 
         if ub:
-            read.set_tag("UB", ub, value_type='Z')
+
+            #Some platforms add comments after #, clean it up:
+            if ('#' in ub):
+                read.set_tag("UB", ub.split('#')[0], value_type='Z')
+            else:
+                read.set_tag("UB", ub, value_type='Z')
 
         out_bam.write(read)
 
