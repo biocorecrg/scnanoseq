@@ -16,9 +16,9 @@ include { SAMTOOLS_INDEX as SAMTOOLS_INDEX_TAGGED       } from '../../modules/nf
 include { SAMTOOLS_INDEX as SAMTOOLS_INDEX_DEDUP        } from '../../modules/nf-core/samtools/index'
 include { SAMTOOLS_VIEW as SAMTOOLS_FILTER_DEDUP        } from '../../modules/nf-core/samtools/view'
 
-include { TAG_BARCODES } from '../../modules/local/tag_barcodes'
-include { ADD_TAGS } from '../../modules/local/add_tags/main'
-
+include { TAG_BARCODES                  } from '../../modules/local/tag_barcodes'
+include { ADD_TAGS as ADD_TAGS_PARSE    } from '../../modules/local/add_tags/main'
+include { ADD_TAGS as ADD_TAGS_ARGENTAG } from '../../modules/local/add_tags/main'
 
 workflow PROCESS_LONGREAD_SCRNA {
     take:
@@ -74,7 +74,12 @@ workflow PROCESS_LONGREAD_SCRNA {
             ch_versions = ch_versions.mix(TAG_BARCODES.out.versions)
 
         } else if (platform == 'Parse') {
-            ch_tagged_bam = ADD_TAGS(ALIGN_LONGREADS.out.sorted_bam)
+            ch_tagged_bam = ADD_TAGS_PARSE(ALIGN_LONGREADS.out.sorted_bam)
+            ch_versions = ch_versions.mix(ch_tagged_bam.versions)
+            ch_tagged_bam.out.view()
+
+        } else if (platform == 'Argentag') {
+            ch_tagged_bam = ADD_TAGS_ARGENTAG(ALIGN_LONGREADS.out.sorted_bam)
             ch_versions = ch_versions.mix(ch_tagged_bam.versions)
             ch_tagged_bam.out.view()
 
