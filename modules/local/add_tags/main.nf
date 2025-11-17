@@ -9,7 +9,7 @@ process ADD_TAGS {
     tuple val(meta), path(bam_file)
 
     output:
-    tuple val(meta), path('*.tagged.bam')                       , emit: out
+    tuple val(meta), path('*.tagged.bam')                       , emit: tagged_bam
     path  "versions.yml"                                        , emit: versions
 
     when:
