@@ -74,32 +74,28 @@ workflow PROCESS_LONGREAD_SCRNA {
             ch_versions = ch_versions.mix(TAG_BARCODES.out.versions)
 
         } else if (platform == 'Parse') {
-            ch_tagged_bam = ADD_TAGS_PARSE(ALIGN_LONGREADS.out.sorted_bam)
-            ch_versions = ch_versions.mix(ch_tagged_bam.versions)
-            ch_tagged_bam.out.view()
+            ADD_TAGS_PARSE(ALIGN_LONGREADS.out.sorted_bam).set {ch_tagged_bam}
+            ch_versions = ch_versions.mix(ADD_TAGS_ARGENTAG.out.versions)
 
         } else if (platform == 'Argentag') {
-            ch_tagged_bam = ADD_TAGS_ARGENTAG(ALIGN_LONGREADS.out.sorted_bam)
-            ch_versions = ch_versions.mix(ch_tagged_bam.versions)
-            ch_tagged_bam.out.view()
+            ADD_TAGS_ARGENTAG(ALIGN_LONGREADS.out.sorted_bam).set {ch_tagged_bam}
+            ch_versions = ch_versions.mix(ADD_TAGS_ARGENTAG.out.versions)
 
         } else {
             exit 1, "Single cell platform not recognized. You can choose either 10X, Parse or Argentag.\n"
         }
         
-
-        """
         //
         // MODULE: Index Tagged Bam
         //
-        SAMTOOLS_INDEX_TAGGED ( ch_tagged_bam.out.tagged_bam )
+        SAMTOOLS_INDEX_TAGGED ( ch_tagged_bam.tagged_bam )
         ch_versions = ch_versions.mix(SAMTOOLS_INDEX_TAGGED.out.versions)
 
         //
         // MODULE: Flagstat Tagged Bam
         //
         SAMTOOLS_FLAGSTAT_TAGGED (
-            ch_tagged_bam.out.tagged_bam
+            ch_tagged_bam.tagged_bam
                 .join( SAMTOOLS_INDEX_TAGGED.out.bai, by: [0])
         )
         ch_versions = ch_versions.mix(SAMTOOLS_FLAGSTAT_TAGGED.out.versions)
@@ -114,7 +110,7 @@ workflow PROCESS_LONGREAD_SCRNA {
                 fasta,
                 fai,
                 gtf,
-                ch_tagged_bam.out.tagged_bam,
+                ch_tagged_bam.tagged_bam,
                 SAMTOOLS_INDEX_TAGGED.out.bai,
                 true, // Used to split the bam
                 genome_aligned,
@@ -128,7 +124,7 @@ workflow PROCESS_LONGREAD_SCRNA {
             ch_versions = DEDUP_UMIS.out.versions
         } else {
 
-            ch_bam = ch_tagged_bam.out.tagged_bam
+            ch_bam = ch_tagged_bam.tagged_bam
             ch_bai = SAMTOOLS_INDEX_TAGGED.out.bai
             ch_flagstat = SAMTOOLS_FLAGSTAT_TAGGED.out.flagstat
                 .map{
@@ -189,7 +185,8 @@ workflow PROCESS_LONGREAD_SCRNA {
         minimap_nanocomp_bam_txt = ALIGN_LONGREADS.out.nanocomp_bam_txt
 
         // Barcode tagging results + qc's
-        bc_tagged_bam            = TAG_BARCODES.out.tagged_bam
+        //bc_tagged_bam            = TAG_BARCODES.out.tagged_bam
+        bc_tagged_bam            = ch_tagged_bam.tagged_bam
         bc_tagged_bai            = SAMTOOLS_INDEX_TAGGED.out.bai
         bc_tagged_flagstat       = SAMTOOLS_FLAGSTAT_TAGGED.out.flagstat
 
@@ -202,5 +199,5 @@ workflow PROCESS_LONGREAD_SCRNA {
         // Seurat QC Stats
         gene_qc_stats            = ch_gene_qc_stats
         transcript_qc_stats      = ch_transcript_qc_stats
-    """
+    
 }

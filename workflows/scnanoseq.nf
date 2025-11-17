@@ -523,7 +523,7 @@ workflow SCNANOSEQ {
             params.skip_dedup
         )}
     
-        """
+        
         ch_versions = ch_versions.mix(PROCESS_LONGREAD_SCRNA_GENOME.out.versions)
 
         ch_multiqc_finalqc_files = ch_multiqc_finalqc_files.mix(
@@ -561,7 +561,7 @@ workflow SCNANOSEQ {
         ch_multiqc_finalqc_files = ch_multiqc_finalqc_files.mix(
             PROCESS_LONGREAD_SCRNA_GENOME.out.transcript_qc_stats.collect().ifEmpty([])
         )
-    }
+    
 
     // oarfish expects deduplicated reads
     if (transcript_quants) {
@@ -670,7 +670,7 @@ workflow SCNANOSEQ {
         ch_multiqc_report = MULTIQC_FINALQC.out.report
         ch_versions    = ch_versions.mix(MULTIQC_FINALQC.out.versions)
     }
-    """
+    
     emit:
     multiqc_report = ch_multiqc_report.toList()
     versions       = ch_versions
