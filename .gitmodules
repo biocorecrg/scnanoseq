@@ -1,0 +1,3 @@
+[submodule "Bionextflow3"]
+	path = Bionextflow3
+	url = git@github.com:biocorecrg/Bionextflow3.git
