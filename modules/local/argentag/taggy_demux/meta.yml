@@ -1,0 +1,6 @@
+name: argentag_taggy_demux
+description: Module to demultiplex single cell datasets generated with ArgenTag.
+tools:
+  - taggy_demux:
+      description: Tool developed by ArgenTag to process and demultiplex single cell datasets generated with their platform.
+      homepage: https://github.com/argentagsw/taggy_demux/blob/main/README.md
