@@ -12,6 +12,8 @@ include { SAMTOOLS_FAIDX as SAMTOOLS_FAIDX_SPLIT } from '../../modules/nf-core/s
 include { SAMTOOLS_INDEX as SAMTOOLS_INDEX_SPLIT } from '../../modules/nf-core/samtools/index/main'
 include { SPLIT_GTF                              } from '../../modules/local/split_gtf'
 include { SPLIT_FASTA                            } from '../../modules/local/split_fasta'
+include { MTX_MERGE as MTX_MERGE_GENE            } from '../../Bionextflow3/modules/local/single_cell_r/merge_mtx/main'
+include { MTX_MERGE as MTX_MERGE_TRANSCRIPT      } from '../../Bionextflow3/modules/local/single_cell_r/merge_mtx/main'
 
 workflow QUANTIFY_SCRNA_ISOQUANT {
     take:
@@ -82,7 +84,8 @@ workflow QUANTIFY_SCRNA_ISOQUANT {
                 def new_meta = ['id': new_id, 'chr': chrom]
                 return [ new_meta, bam ]
             }
-
+        
+        
         //
         // MODULE: Samtools Index
         //
@@ -117,21 +120,23 @@ workflow QUANTIFY_SCRNA_ISOQUANT {
         //
         // MODULE: Merge Matrix
         //
-        ch_split_gene_mtx = ISOQUANT.out.grouped_gene_counts_mtx
+        ch_split_gene_mtx = ISOQUANT.out.grouped_gene_counts_mtx.mix(ISOQUANT.out.grouped_gene_counts_barcodes).mix(ISOQUANT.out.grouped_gene_counts_features)
             .map {
                 meta, gene_mtx ->
                     def new_meta = [ 'id': meta.id ]
                     return [ new_meta, gene_mtx ]
             }
             .groupTuple()
+        
+        //MERGE_MTX_GENE (
+        //    ch_split_gene_mtx
+        //)
+        MTX_MERGE_GENE(ch_split_gene_mtx)
 
-        MERGE_MTX_GENE (
-            ch_split_gene_mtx
-        )
-        ch_merged_gene_mtx = MERGE_MTX_GENE.out.merged_mtx
-        ch_versions = ch_versions.mix(MERGE_MTX_GENE.out.versions)
+        ch_merged_gene_mtx = MTX_MERGE_GENE.out.merged_h5
+        //ch_versions = ch_versions.mix(MERGE_MTX_GENE.out.versions)
 
-        ch_split_transcript_mtx = ISOQUANT.out.grouped_transcript_counts_mtx
+        ch_split_transcript_mtx = ISOQUANT.out.grouped_transcript_counts_mtx.mix(ISOQUANT.out.grouped_transcript_counts_barcodes).mix(ISOQUANT.out.grouped_transcript_counts_features)
             .map {
                 meta, transcript_mtx ->
                     def new_meta = [ 'id': meta.id ]
@@ -139,11 +144,13 @@ workflow QUANTIFY_SCRNA_ISOQUANT {
             }
             .groupTuple()
 
-        MERGE_MTX_TRANSCRIPT (
-            ch_split_transcript_mtx
-        )
-        ch_merged_transcript_mtx = MERGE_MTX_TRANSCRIPT.out.merged_mtx
-        ch_versions = ch_versions.mix(MERGE_MTX_TRANSCRIPT.out.versions)
+        //MERGE_MTX_TRANSCRIPT (
+        //    ch_split_transcript_mtx
+        //)
+        MTX_MERGE_TRANSCRIPT(ch_split_transcript_mtx)
+
+        ch_merged_transcript_mtx = MTX_MERGE_TRANSCRIPT.out.merged_h5
+        //ch_versions = ch_versions.mix(MERGE_MTX_TRANSCRIPT.out.versions)
 
         ch_gene_qc_stats = Channel.empty()
         ch_transcript_qc_stats = Channel.empty()
@@ -165,7 +172,7 @@ workflow QUANTIFY_SCRNA_ISOQUANT {
             ch_transcript_qc_stats = QC_SCRNA_TRANSCRIPT.out.seurat_stats
             ch_versions = ch_versions.mix(QC_SCRNA_TRANSCRIPT.out.versions)
         }
-
+        
     emit:
         versions            = ch_versions
         gene_mtx            = ch_merged_gene_mtx
