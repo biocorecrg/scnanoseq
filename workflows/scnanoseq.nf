@@ -447,7 +447,6 @@ workflow SCNANOSEQ {
 
         ch_extracted_fastq = ch_extracted_fastq.out
         ch_corrected_bc_info = Channel.empty()
-        ch_extracted_fastq.view()
 
     } else {
         exit 1, "Single cell platform not recognized. You can choose either 10X, Parse or Argentag.\n"
