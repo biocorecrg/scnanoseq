@@ -6,6 +6,7 @@
 library(optparse)
 library(Seurat)
 library(ggplot2)
+library(SeuratDisk)
 
 #######################
 ### CUSTOM FUNCTION ###
@@ -95,11 +96,12 @@ if (!is.null(opt$input_dir)) {
                                         min.features = 0,
                                         project = opt$id)
 } else {
-    cell_bc_matrix <- read.table(opt$input_matrix, sep="\t", header = TRUE, row.names = 1)
-    seurat_obj <- CreateSeuratObject(counts = cell_bc_matrix,
-                                        min.cells = 0,
-                                        min.features = 0,
-                                        project = opt$id)
+    #cell_bc_matrix <- read.table(opt$input_matrix, sep="\t", header = TRUE, row.names = 1)
+    #seurat_obj <- CreateSeuratObject(counts = cell_bc_matrix,
+    #                                    min.cells = 0,
+    #                                    min.features = 0,
+    #                                    project = opt$id)
+    seurat_obj <- LoadH5Seurat(opt$input_matrix)
 }
 
 flagstat_lines <- readLines(opt$flagstat)
@@ -160,7 +162,11 @@ dev.off()
 # MultiQC report linked to read depth per cell, # of genes etc.
 
 # Get the "Estimated Number of Cells"
-est_cell_number <- length(colnames(cell_bc_matrix))
+if (!is.null(opt$input_dir)) {
+    est_cell_number <- length(colnames(cell_bc_matrix))
+} else {
+    est_cell_number <- length(colnames(seurat_obj))
+}
 
 # Get the "Mean Reads per Cell"
 mean_reads_per_cell <- round(total_reads / est_cell_number, digits = 2)
