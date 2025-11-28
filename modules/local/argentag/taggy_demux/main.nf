@@ -8,7 +8,7 @@ process ARGENTAG_TAGGY_DEMUX {
     tuple val(meta), path(input_file)
 
     output:
-    tuple val(meta), path('*.demux.fastq')                            , emit: out
+    tuple val(meta), path('*.tagged.fastq')                     , emit: out
     path  "versions.yml"                                        , emit: versions
 
     when:
@@ -16,7 +16,6 @@ process ARGENTAG_TAGGY_DEMUX {
 
     script:
     def args          = task.ext.args ?: ''
-    def sample_name   = input_file.name.replaceAll(/\.fastq$/, '')
 
     """
     cp -r /opt/scripts/res .
@@ -27,7 +26,7 @@ process ARGENTAG_TAGGY_DEMUX {
         --output-dir . \
         ${input_file} \
 
-    cat *.fastq > ${sample_name}.demux.fastq
+    cat *.fastq > ${meta.id}.tagged.fastq
 
     cat <<-END_VERSIONS > versions.yml
     "${task.process}":
