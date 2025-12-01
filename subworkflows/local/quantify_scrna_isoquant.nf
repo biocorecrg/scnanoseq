@@ -66,7 +66,7 @@ workflow QUANTIFY_SCRNA_ISOQUANT {
         //
         BAMTOOLS_SPLIT ( in_bam )
         ch_versions = ch_versions.mix(BAMTOOLS_SPLIT.out.versions.first())
-
+        
         ch_split_bam = BAMTOOLS_SPLIT.out.bam
             .map {
                 meta, bam ->
@@ -76,10 +76,13 @@ workflow QUANTIFY_SCRNA_ISOQUANT {
             .map { bam ->
                 def bam_basename = bam.toString().split('/')[-1]
 
-                def chrom = bam_basename.split(/\./)[1].replace("REF_", "")
+                // Examples of bam naming: ARGENTAG_REP1.REF_mouse_9.bam and ARGENTAG_REP1.REF_mouse_GL456210.1.bam
+                def chrom_match = bam_basename =~ /\.REF_(.+)\.bam$/
+                def chrom = chrom_match ? chrom_match[0][1] : "unknown"
 
-                def split_bam_basename = bam_basename.split(/\./)
-                def new_id = split_bam_basename.take(split_bam_basename.size()-2).join(".")
+                // Extract ID: everything before the first ".REF_"
+                def id_match = bam_basename =~ /^(.+?)\.REF_/
+                def new_id = id_match ? id_match[0][1] : bam_basename.replaceAll(/\.bam$/, '')
 
                 def new_meta = ['id': new_id, 'chr': chrom]
                 return [ new_meta, bam ]
@@ -92,7 +95,7 @@ workflow QUANTIFY_SCRNA_ISOQUANT {
         SAMTOOLS_INDEX_SPLIT( ch_split_bam )
         ch_split_bai = SAMTOOLS_INDEX_SPLIT.out.bai
         ch_versions = ch_versions.mix(SAMTOOLS_INDEX_SPLIT.out.versions.first())
-
+        ch_split_bam.view()
         // Prepare isoquant input channel
         // bam and bai files need to be joined with split fasta, fai and gtf files
         isoquant_input = ch_split_bam
@@ -128,12 +131,10 @@ workflow QUANTIFY_SCRNA_ISOQUANT {
             }
             .groupTuple()
         
-        //MERGE_MTX_GENE (
-        //    ch_split_gene_mtx
-        //)
         MTX_MERGE_GENE(ch_split_gene_mtx)
 
         ch_merged_gene_mtx = MTX_MERGE_GENE.out.merged_h5
+        ch_merged_gene_mtx.view()
         //ch_versions = ch_versions.mix(MERGE_MTX_GENE.out.versions)
 
         ch_split_transcript_mtx = ISOQUANT.out.grouped_transcript_counts_mtx.mix(ISOQUANT.out.grouped_transcript_counts_barcodes).mix(ISOQUANT.out.grouped_transcript_counts_features)
@@ -144,9 +145,6 @@ workflow QUANTIFY_SCRNA_ISOQUANT {
             }
             .groupTuple()
 
-        //MERGE_MTX_TRANSCRIPT (
-        //    ch_split_transcript_mtx
-        //)
         MTX_MERGE_TRANSCRIPT(ch_split_transcript_mtx)
 
         ch_merged_transcript_mtx = MTX_MERGE_TRANSCRIPT.out.merged_h5
