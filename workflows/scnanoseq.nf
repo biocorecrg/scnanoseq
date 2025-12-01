@@ -98,7 +98,9 @@ include { PROCESS_LONGREAD_SCRNA as PROCESS_LONGREAD_SCRNA_TRANSCRIPT } from "..
 //
 include { PIGZ_UNCOMPRESS as GUNZIP_FASTQ               } from "../modules/nf-core/pigz/uncompress/main"
 include { PIGZ_UNCOMPRESS as GUNZIP_WHITELIST           } from "../modules/nf-core/pigz/uncompress/main"
-include { PIGZ_COMPRESS                                 } from "../modules/nf-core/pigz/compress/main"
+include { PIGZ_COMPRESS as PIGZ_COMPRESS_10X            } from "../modules/nf-core/pigz/compress/main"
+include { PIGZ_COMPRESS as PIGZ_COMPRESS_PARSE          } from "../modules/nf-core/pigz/compress/main"
+include { PIGZ_COMPRESS as PIGZ_COMPRESS_ARGENTAG       } from "../modules/nf-core/pigz/compress/main"
 include { NANOCOMP as NANOCOMP_FASTQ                    } from "../modules/nf-core/nanocomp/main"
 include { MULTIQC as MULTIQC_RAWQC                      } from "../modules/nf-core/multiqc/main"
 include { MULTIQC as MULTIQC_FINALQC                    } from "../modules/nf-core/multiqc/main"
@@ -393,9 +395,9 @@ workflow SCNANOSEQ {
             //
             // MODULE: Zip the reads
             //
-            PIGZ_COMPRESS (ch_cat_preextract_fastq )
-            ch_extracted_fastq = PIGZ_COMPRESS.out.archive
-            ch_versions = ch_versions.mix(PIGZ_COMPRESS.out.versions)
+            PIGZ_COMPRESS_10X (ch_cat_preextract_fastq )
+            ch_extracted_fastq = PIGZ_COMPRESS_10X.out.archive
+            ch_versions = ch_versions.mix(PIGZ_COMPRESS_10X.out.versions)
         }
 
     } else if (params.platform == "Parse") {
@@ -429,10 +431,14 @@ workflow SCNANOSEQ {
         spipe_params_file = file("$baseDir/assets/parfile_parse.txt")
         spipe_mock_genome_dir = "$baseDir/assets/mock_genome_parse"
 
-        ch_extracted_fastq = SPLITPIPE_PRE(ch_concatenated.reads, spipe_mock_genome_dir, spipe_params_file)
-        ch_versions = ch_versions.mix(ch_extracted_fastq.versions)
+        ch_cat_preextract_fastq = SPLITPIPE_PRE(ch_concatenated.reads, spipe_mock_genome_dir, spipe_params_file)
+        ch_versions = ch_versions.mix(ch_cat_preextract_fastq.versions)
 
-        ch_extracted_fastq = ch_extracted_fastq.out
+        // Compress the tagged fastq:
+        PIGZ_COMPRESS_PARSE (ch_cat_preextract_fastq.out )
+        ch_extracted_fastq = PIGZ_COMPRESS_PARSE.out.archive
+        ch_versions = ch_versions.mix(PIGZ_COMPRESS_PARSE.out.versions)
+
         ch_corrected_bc_info = Channel.empty()
 
     } else if (params.platform == "Argentag") {
@@ -442,10 +448,14 @@ workflow SCNANOSEQ {
         ch_versions = ch_versions.mix(ch_chimera_splitted.versions)
 
         // Run taggy demux to generate the corrected fastq:
-        ch_extracted_fastq = ARGENTAG_TAGGY_DEMUX(ch_chimera_splitted.out)
-        ch_versions = ch_versions.mix(ch_extracted_fastq.versions)
+        ch_cat_preextract_fastq = ARGENTAG_TAGGY_DEMUX(ch_chimera_splitted.out)
+        ch_versions = ch_versions.mix(ch_cat_preextract_fastq.versions)
 
-        ch_extracted_fastq = ch_extracted_fastq.out
+        // Compress the tagged fastq:
+        PIGZ_COMPRESS_ARGENTAG (ch_cat_preextract_fastq.out)
+        ch_extracted_fastq = PIGZ_COMPRESS_ARGENTAG.out.archive
+        ch_versions = ch_versions.mix(PIGZ_COMPRESS_ARGENTAG.out.versions)
+
         ch_corrected_bc_info = Channel.empty()
 
     } else {
