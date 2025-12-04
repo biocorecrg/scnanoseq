@@ -229,6 +229,7 @@ workflow SCNANOSEQ {
     if (!params.skip_qc && !params.skip_rseqc) {
         UCSC_GTFTOGENEPRED( gtf )
         ch_pred = UCSC_GTFTOGENEPRED.out.genepred
+        ch_refflat = UCSC_GTFTOGENEPRED.out.refflat
         ch_versions = ch_versions.mix(UCSC_GTFTOGENEPRED.out.versions)
 
         UCSC_GENEPREDTOBED ( ch_pred )
@@ -517,6 +518,7 @@ workflow SCNANOSEQ {
             genome_fai,
             gtf,
             ch_extracted_fastq,
+            ch_refflat,
             ch_rseqc_bed,
             ch_corrected_bc_info,
             genome_quants,
@@ -559,6 +561,10 @@ workflow SCNANOSEQ {
             ch_multiqc_finalqc_files = ch_multiqc_finalqc_files.mix(
                 PROCESS_LONGREAD_SCRNA_GENOME.out.dedup_idxstats.collect{it[1]}.ifEmpty([])
             )
+            ch_multiqc_finalqc_files = ch_multiqc_finalqc_files.mix(
+                PROCESS_LONGREAD_SCRNA_GENOME.out.picard_metrics.collect{it[1]}.ifEmpty([])
+            )
+
         }
 
         ch_multiqc_finalqc_files = ch_multiqc_finalqc_files.mix(

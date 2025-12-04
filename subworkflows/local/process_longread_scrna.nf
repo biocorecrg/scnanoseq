@@ -10,6 +10,7 @@ include { DEDUP_UMIS              } from '../../subworkflows/local/dedup_umis'
 
 // MODULES
 include { PICARD_MARKDUPLICATES                         } from '../../modules/nf-core/picard/markduplicates'
+include { PICARD_COLLECTRNASEQMETRICS                   } from '../../modules/nf-core/picard/collectrnaseqmetrics'                                                                                           
 include { SAMTOOLS_FLAGSTAT as SAMTOOLS_FLAGSTAT_TAGGED } from '../../modules/nf-core/samtools/flagstat'
 include { SAMTOOLS_FLAGSTAT as SAMTOOLS_FLAGSTAT_DEDUP  } from '../../modules/nf-core/samtools/flagstat'
 include { SAMTOOLS_INDEX as SAMTOOLS_INDEX_TAGGED       } from '../../modules/nf-core/samtools/index'
@@ -19,6 +20,7 @@ include { SAMTOOLS_VIEW as SAMTOOLS_FILTER_DEDUP        } from '../../modules/nf
 include { TAG_BARCODES                  } from '../../modules/local/tag_barcodes'
 include { ADD_TAGS as ADD_TAGS_PARSE    } from '../../modules/local/add_tags/main'
 include { ADD_TAGS as ADD_TAGS_ARGENTAG } from '../../modules/local/add_tags/main'
+include { RRNA_FOR_COLLECTRNASEQMETRICS } from '../../Bionextflow3/modules/local/rrna_for_collectrnaseqmetrics'
 
 workflow PROCESS_LONGREAD_SCRNA {
     take:
@@ -26,6 +28,7 @@ workflow PROCESS_LONGREAD_SCRNA {
         fai             // channel: [ val(meta), path(fai) ]
         gtf             // channel: [ val(meta), path(gtf) ]
         fastq           // channel: [ val(meta), path(fastq) ]
+        picard_refflat  // channel: [ val(meta), path(picard_refflat) ]
         rseqc_bed       // channel: [ val(meta), path(rseqc_bed) ]
         read_bc_info    // channel: [ val(meta), path(read_barcode_info) ]
         quant_list      // list: List of quantifiers to use
@@ -122,6 +125,13 @@ workflow PROCESS_LONGREAD_SCRNA {
             ch_bai = DEDUP_UMIS.out.dedup_bai
             ch_flagstat = DEDUP_UMIS.out.dedup_flagstat
             ch_versions = DEDUP_UMIS.out.versions
+
+            // QC: base proportion belonging to different kind of features:
+            picard_refflat.view()
+            rrnas = RRNA_FOR_COLLECTRNASEQMETRICS(fai, gtf).rRRNAs.map{ it[1] }
+            rnaseq_metrics = PICARD_COLLECTRNASEQMETRICS(ch_bam, picard_refflat, fasta.map{ it[1] }, rrnas)
+            
+
         } else {
 
             ch_bam = ch_tagged_bam.tagged_bam
@@ -195,6 +205,9 @@ workflow PROCESS_LONGREAD_SCRNA {
         dedup_bai                = ch_bai
         dedup_flagstat           = ch_flagstat
         dedup_idxstats           = ch_idxstats
+
+        // Picard QC Stats
+        picard_metrics           = rnaseq_metrics.metrics
 
         // Seurat QC Stats
         gene_qc_stats            = ch_gene_qc_stats
