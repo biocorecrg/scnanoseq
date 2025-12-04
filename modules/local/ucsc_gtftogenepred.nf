@@ -11,8 +11,9 @@ process UCSC_GTFTOGENEPRED {
     tuple val(meta), path(gtf)
 
     output:
-    path "*.genepred"    , emit: genepred
-    path "versions.yml"  , emit: versions
+    path("*.genepred")                 , emit: genepred
+    path("*.refflat")                  , emit: refflat , optional: true
+    path "versions.yml"                , emit: versions
 
     when:
     task.ext.when == null || task.ext.when
@@ -20,6 +21,7 @@ process UCSC_GTFTOGENEPRED {
     script:
     def args    = task.ext.args ?: ''
     def prefix  = task.ext.prefix ?: "${gtf.baseName}"
+    def gen_refflat = args.contains("-genePredExt") && args.contains("-geneNameAsName2") ? "true" : "false"
     // WARN: Version information not provided by tool on CLI. Please update this string when bumping container versions.
     def VERSION = '447'
     """
@@ -27,6 +29,10 @@ process UCSC_GTFTOGENEPRED {
         $args \\
         $gtf  \\
         ${prefix}.genepred
+
+    if [ "${gen_refflat}" == "true" ] ; then
+        awk 'BEGIN { OFS="\\t"} {print \$12, \$1, \$2, \$3, \$4, \$5, \$6, \$7, \$8, \$9, \$10}' ${prefix}.genepred > ${prefix}.refflat
+    fi
 
     cat <<-END_VERSIONS > versions.yml
     "${task.process}":
