@@ -95,7 +95,7 @@ workflow QUANTIFY_SCRNA_ISOQUANT {
         SAMTOOLS_INDEX_SPLIT( ch_split_bam )
         ch_split_bai = SAMTOOLS_INDEX_SPLIT.out.bai
         ch_versions = ch_versions.mix(SAMTOOLS_INDEX_SPLIT.out.versions.first())
-        ch_split_bam.view()
+        
         // Prepare isoquant input channel
         // bam and bai files need to be joined with split fasta, fai and gtf files
         isoquant_input = ch_split_bam
@@ -134,7 +134,7 @@ workflow QUANTIFY_SCRNA_ISOQUANT {
         MTX_MERGE_GENE(ch_split_gene_mtx)
 
         ch_merged_gene_mtx = MTX_MERGE_GENE.out.merged_h5
-        ch_merged_gene_mtx.view()
+        
         //ch_versions = ch_versions.mix(MERGE_MTX_GENE.out.versions)
 
         ch_split_transcript_mtx = ISOQUANT.out.grouped_transcript_counts_mtx.mix(ISOQUANT.out.grouped_transcript_counts_barcodes).mix(ISOQUANT.out.grouped_transcript_counts_features)
