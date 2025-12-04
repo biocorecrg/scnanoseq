@@ -14,6 +14,7 @@ include { SPLIT_GTF                              } from '../../modules/local/spl
 include { SPLIT_FASTA                            } from '../../modules/local/split_fasta'
 include { MTX_MERGE as MTX_MERGE_GENE            } from '../../Bionextflow3/modules/local/single_cell_r/merge_mtx/main'
 include { MTX_MERGE as MTX_MERGE_TRANSCRIPT      } from '../../Bionextflow3/modules/local/single_cell_r/merge_mtx/main'
+include { GFFCOMPARE                             } from '../../modules/nf-core/gffcompare/main'  
 
 workflow QUANTIFY_SCRNA_ISOQUANT {
     take:

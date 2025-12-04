@@ -30,6 +30,11 @@
                         "git_sha": "dc94b6ee04a05ddb9f7ae050712ff30a13149164",
                         "installed_by": ["modules"]
                     },
+                    "gffcompare": {
+                        "branch": "master",
+                        "git_sha": "41dfa3f7c0ffabb96a6a813fe321c6d1cc5b6e46",
+                        "installed_by": ["modules"]
+                    },
                     "minimap2/align": {
                         "branch": "master",
                         "git_sha": "a33ef9475558c6b8da08c5f522ddaca1ec810306",
