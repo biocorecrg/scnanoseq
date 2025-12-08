@@ -14,7 +14,9 @@ include { SPLIT_GTF                              } from '../../modules/local/spl
 include { SPLIT_FASTA                            } from '../../modules/local/split_fasta'
 include { MTX_MERGE as MTX_MERGE_GENE            } from '../../Bionextflow3/modules/local/single_cell_r/merge_mtx/main'
 include { MTX_MERGE as MTX_MERGE_TRANSCRIPT      } from '../../Bionextflow3/modules/local/single_cell_r/merge_mtx/main'
+
 include { GFFCOMPARE                             } from '../../modules/nf-core/gffcompare/main'  
+include { SQANTI3_QC                             } from '../../Bionextflow3/modules/local/sqanti3/sqanti3_qc/main'
 
 workflow QUANTIFY_SCRNA_ISOQUANT {
     take:
@@ -29,7 +31,7 @@ workflow QUANTIFY_SCRNA_ISOQUANT {
 
     main:
         ch_versions = Channel.empty()
-
+        
         //
         // MODULE: Split the FASTA
         //
@@ -120,6 +122,27 @@ workflow QUANTIFY_SCRNA_ISOQUANT {
             'tag:CB'
         )
         ch_versions = ch_versions.mix(ISOQUANT.out.versions)
+
+        //
+        // MODULE: sqanti3
+        //
+        transcript_models = ISOQUANT.out.transcript_models.map{ 
+                                                            meta, gtf -> 
+                                                                def new_meta = ['id': meta.id]
+                                                                return [new_meta, gtf]
+                                                            }.groupTuple()
+        
+        fa_fai = in_fasta.join(in_fai).map {
+                                        meta, fasta, fai ->
+                                        // Create a proper meta map
+                                        def new_meta = ['id': 'reference']
+                
+                                        tuple(new_meta, fasta, fai)
+                                            }
+
+        expressed_transcripts_gtf = GFFCOMPARE(transcript_models, fa_fai.first(),  Channel.of([[:], []]).first())
+
+        SQANTI3_QC(expressed_transcripts_gtf.combined_gtf, fa_fai.first(), in_gtf.first())
 
         //
         // MODULE: Merge Matrix
