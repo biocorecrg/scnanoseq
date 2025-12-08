@@ -127,10 +127,8 @@ workflow PROCESS_LONGREAD_SCRNA {
             ch_versions = DEDUP_UMIS.out.versions
 
             // QC: base proportion belonging to different kind of features:
-            picard_refflat.view()
             rrnas = RRNA_FOR_COLLECTRNASEQMETRICS(fai, gtf).rRRNAs.map{ it[1] }
             rnaseq_metrics = PICARD_COLLECTRNASEQMETRICS(ch_bam, picard_refflat, fasta.map{ it[1] }, rrnas)
-            
 
         } else {
 
