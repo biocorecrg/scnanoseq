@@ -70,7 +70,8 @@ include { SPLIT_FILE as SPLIT_FILE_BC_CSV   } from "../modules/local/split_file"
 include { SPLIT_FILE as SPLIT_FILE_PARSE    } from "../modules/local/split_file"
 include { BLAZE                             } from "../modules/local/blaze"
 include { PREEXTRACT_FASTQ                  } from "../modules/local/preextract_fastq.nf"
-include { READ_COUNTS                       } from "../modules/local/read_counts.nf"
+include { READ_COUNTS as READ_COUNTS_GENOME } from "../modules/local/read_counts.nf"
+include { READ_COUNTS as READ_COUNTS_TRANSCRIPT } from "../modules/local/read_counts.nf"
 include { CORRECT_BARCODES                  } from "../modules/local/correct_barcodes"
 include { UCSC_GTFTOGENEPRED                } from "../modules/local/ucsc_gtftogenepred"
 include { UCSC_GENEPREDTOBED                } from "../modules/local/ucsc_genepredtobed"
@@ -496,14 +497,6 @@ workflow SCNANOSEQ {
 
         }
 
-        READ_COUNTS (
-            ch_pretrim_counts.ifEmpty([]),
-            ch_posttrim_counts.ifEmpty([]),
-            ch_postextract_counts.ifEmpty([]),
-            ch_corrected_bc_info.collect{it[1]})
-
-        ch_read_counts = READ_COUNTS.out.read_counts
-        ch_versions = ch_versions.mix(READ_COUNTS.out.versions)
     }
 
     //
@@ -567,8 +560,19 @@ workflow SCNANOSEQ {
 
         }
 
+        READ_COUNTS_GENOME (
+            ch_pretrim_counts.ifEmpty([]),
+            ch_postextract_counts.ifEmpty([]),
+            ch_corrected_bc_info.collect{it[1]}.ifEmpty([]),
+            PROCESS_LONGREAD_SCRNA_GENOME.out.minimap_flagstat.collect{it[1]}.ifEmpty([]),
+            PROCESS_LONGREAD_SCRNA_GENOME.out.dedup_flagstat.collect{it[1]}.ifEmpty([])
+            )
+ 
+        ch_read_counts_genome = READ_COUNTS_GENOME.out.read_counts
+        ch_versions = ch_versions.mix(READ_COUNTS_GENOME.out.versions)
+
         ch_multiqc_finalqc_files = ch_multiqc_finalqc_files.mix(
-            ch_read_counts.collect().ifEmpty([])
+            ch_read_counts_genome.collect().ifEmpty([])
         )
         ch_multiqc_finalqc_files = ch_multiqc_finalqc_files.mix(
             PROCESS_LONGREAD_SCRNA_GENOME.out.gene_qc_stats.collect().ifEmpty([])
@@ -621,8 +625,19 @@ workflow SCNANOSEQ {
             )
         }
 
+        READ_COUNTS_TRANSCRIPT (
+            ch_pretrim_counts.ifEmpty([]),
+            ch_postextract_counts.ifEmpty([]),
+            ch_corrected_bc_info.collect{it[1]}.ifEmpty([]),
+            PROCESS_LONGREAD_SCRNA_TRANSCRIPT.out.minimap_flagstat.collect{it[1]}.ifEmpty([]),
+            PROCESS_LONGREAD_SCRNA_TRANSCRIPT.out.dedup_flagstat.collect{it[1]}.ifEmpty([])
+            )
+ 
+        ch_read_counts_transcript = READ_COUNTS_TRANSCRIPT.out.read_counts
+        ch_versions = ch_versions.mix(READ_COUNTS_TRANSCRIPT.out.versions)
+
         ch_multiqc_finalqc_files = ch_multiqc_finalqc_files.mix(
-            ch_read_counts.collect().ifEmpty([])
+            ch_read_counts_transcript.collect().ifEmpty([])
         )
         ch_multiqc_finalqc_files = ch_multiqc_finalqc_files.mix(
             PROCESS_LONGREAD_SCRNA_TRANSCRIPT.out.transcript_qc_stats.collect().ifEmpty([])
@@ -650,14 +665,14 @@ workflow SCNANOSEQ {
         ch_multiqc_rawqc_files = ch_multiqc_rawqc_files.mix(ch_fastqc_multiqc_pretrim.collect().ifEmpty([]))
         ch_multiqc_rawqc_files = ch_multiqc_rawqc_files.mix(ch_nanocomp_fastq_txt.collect{it[1]}.ifEmpty([]))
 
-        MULTIQC_RAWQC (
-            ch_multiqc_rawqc_files.collect(),
-            ch_multiqc_config,
-            ch_multiqc_custom_config.collect().ifEmpty([]),
-            ch_multiqc_logo.collect().ifEmpty([]),
-            [],
-            []
-        )
+        //MULTIQC_RAWQC (
+        //    ch_multiqc_rawqc_files.collect(),
+        //    ch_multiqc_config,
+        //    ch_multiqc_custom_config.collect().ifEmpty([]),
+        //    ch_multiqc_logo.collect().ifEmpty([]),
+        //    [],
+        //    []
+        //)
 
         //
         // MODULE: MultiQC for final pipeline outputs
@@ -672,7 +687,7 @@ workflow SCNANOSEQ {
 
         ch_multiqc_finalqc_files = ch_multiqc_finalqc_files.mix(ch_fastqc_multiqc_postrim.collect().ifEmpty([]))
         ch_multiqc_finalqc_files = ch_multiqc_finalqc_files.mix(ch_fastqc_multiqc_postextract.collect().ifEmpty([]))
-
+        ch_multiqc_finalqc_files = ch_multiqc_finalqc_files.mix(ch_multiqc_rawqc_files.collect().ifEmpty([]))
 
         MULTIQC_FINALQC (
             ch_multiqc_finalqc_files.collect(),

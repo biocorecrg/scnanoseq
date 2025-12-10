@@ -8,9 +8,10 @@ process READ_COUNTS {
 
     input:
     path raw_fastqc
-    path trim_fastqc
-    path preextract_fastqc
+    path postextract_fastqc
     path correct_tsv
+    path mapped_stats
+    path dedup_stats
 
     output:
     path "read_counts.csv" , emit: read_counts

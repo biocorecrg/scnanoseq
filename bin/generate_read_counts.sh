@@ -16,6 +16,13 @@ get_nanoplot_counts()
     echo $counts
 }
 
+get_flagstat_counts()
+{
+    flagstat_file=$1
+    counts=$(grep 'primary mapped' $flagstat_file | cut -d ' ' -f1)
+    echo $counts
+}
+
 output=""
 input=""
 
@@ -26,6 +33,8 @@ do
     case "${flag}" in
         --input) input=$2; shift;;
         --output) output=$2; shift;;
+        --type) type=$2; shift;;
+
         *) echo "Unknown option $1 ${reset}" && exit 1
     esac
     shift
@@ -34,11 +43,12 @@ done
 header=""
 data=""
 
-header="sample,base_fastq_counts,trimmed_read_counts,extracted_read_counts,corrected_read_counts"
+header="Sample,Input_reads,Tagged_reads,Mapped_reads,Dedup_reads"
 echo "$header" > $output
 
-for sample_name in $(for file in $(readlink -f $input)/*.tsv; do basename $file; done | cut -f1 -d'.' | sort -u)
+for sample_name in $(for file in $(readlink -f $input)/*.zip; do basename $file; done | cut -f1 -d'.' | sort -u)
 do
+
     ###############
     # INPUT_FILES #
     ###############
@@ -46,15 +56,15 @@ do
     raw_fastqc="${sample_name}.raw_fastqc.zip"
     raw_nanoplot="${sample_name}.raw_NanoStats.txt"
 
-    trim_fastqc="${sample_name}.trimmed_fastqc.zip"
-    trim_nanoplot="${sample_name}.trimmed_NanoStats.txt"
-
     extract_fastqc="${sample_name}.extracted_fastqc.zip"
     extract_nanoplot="${sample_name}.extracted_NanoStats.txt"
 
     correct_csv="${sample_name}.corrected_bc_umi.tsv"
     data="$(basename $sample_name)"
 
+    mapped_stats="${sample_name}.${type}.minimap.flagstat"
+    dedup_stats="${sample_name}.${type}.umitools_dedup.flagstat"
+    
     ####################
     # RAW FASTQ COUNTS #
     ####################
@@ -70,25 +80,14 @@ do
         data="$data,"
     fi
 
-    ###############
-    # TRIM COUNTS #
-    ###############
-    if [[ -s "$trim_fastqc" ]]
+    #################
+    # TAGGED COUNTS #
+    #################
+    if [[ -s $correct_csv ]]
     then
-        trim_counts=$(get_fastqc_counts "$trim_fastqc")
-        data="$data,$trim_counts"
-    elif [[ -s "$trim_nanoplot" ]]
-    then
-        nanoplot_counts=$(get_nanoplot_counts "$trim_nanoplot")
-        data="$data,$nanoplot_counts"
-    else
-        data="$data,"
-    fi
-
-    #####################
-    # PREEXTRACT COUNTS #
-    #####################
-    if [[ -s "$extract_fastqc" ]]
+        correct_counts=$(cut -f6 $correct_csv | awk '{if ($0 != "") {print $0}}' | wc -l)
+        data="$data,$correct_counts"
+    elif [[ -s "$extract_fastqc" ]]
     then
         extract_counts=$(get_fastqc_counts "$extract_fastqc")
         data="$data,$extract_counts"
@@ -100,15 +99,27 @@ do
         data="$data,"
     fi
 
-    ##################
-    # CORRECT COUNTS #
-    ##################
-    if [[ -s $correct_csv ]]
+    #################
+    # MAPPED COUNTS #
+    #################
+    if [[ -s $mapped_stats ]]
     then
-        correct_counts=$(cut -f6 $correct_csv | awk '{if ($0 != "") {print $0}}' | wc -l)
-        data="$data,$correct_counts"
+        mapped_counts=$(get_flagstat_counts "$mapped_stats")
+        data="$data,$mapped_counts"
     else
         data="$data,"
     fi
+
+    #################
+    # DEDUP COUNTS #
+    #################
+    if [[ -s $dedup_stats ]]
+    then
+        dedup_counts=$(get_flagstat_counts "$dedup_stats")
+        data="$data,$dedup_counts"
+    else
+        data="$data,"
+    fi
+    
     echo "$data" >> $output
 done
