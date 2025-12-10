@@ -12,6 +12,7 @@ params.fastqc_options         = [:]
 include { NANOPLOT     } from '../../modules/nf-core/nanoplot/main'  //addParams( options: params.nanoplot_fastq_options )
 include { TOULLIGQC    } from '../../modules/nf-core/toulligqc/main' //addParams( options: params.toulligqc_fastqc_options )                                                                                                                    
 include { FASTQC       } from '../../modules/nf-core/fastqc/main'    //addParams( options: params.fastqc_options )
+include { NANOQ        } from '../../modules/nf-core/nanoq/main'
 
 workflow QCFASTQ_NANOPLOT_FASTQC {
     take:
@@ -19,6 +20,7 @@ workflow QCFASTQ_NANOPLOT_FASTQC {
     skip_nanoplot
     skip_toulligqc
     skip_fastqc
+    skip_nanoq
 
     main:
     ch_fastq
@@ -79,6 +81,20 @@ workflow QCFASTQ_NANOPLOT_FASTQC {
         fastqc_version = FASTQC.out.versions
     }
 
+    /*
+     * FastQ QC using NANOQ
+     */
+    nanoq_stats   = Channel.empty()
+    nanoq_reads   = Channel.empty()
+    nanoq_version    = Channel.empty()
+    
+    if (!skip_nanoq){
+        NANOQ ( ch_fastq, 'fastq.gz' )
+        nanoq_stats     = NANOQ.out.stats
+        nanoq_reads     = NANOQ.out.reads
+        nanoq_version   = NANOQ.out.versions
+    }
+    
     emit:
     nanoplot_png
     nanoplot_html
@@ -96,4 +112,9 @@ workflow QCFASTQ_NANOPLOT_FASTQC {
     fastqc_html
     fastqc_version
     fastqc_multiqc
+
+    nanoq_stats
+    nanoq_reads
+    nanoq_version
+
 }

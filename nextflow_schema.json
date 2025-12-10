@@ -292,6 +292,11 @@
                     "fa_icon": "fas fa-forward",
                     "description": "Skip NanoComp from FASTQ file(s)."
                 },
+                "skip_nanoq": {
+                    "type": "boolean",
+                    "fa_icon": "fas fa-forward",
+                    "description": "Skip Nanoq QC from FASTQ file(s)."
+                },
                 "skip_bam_nanocomp": {
                     "type": "boolean",
                     "fa_icon": "fas fa-forward",
