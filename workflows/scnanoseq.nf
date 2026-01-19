@@ -68,6 +68,7 @@ include { SPLIT_FILE                        } from "../modules/local/split_file"
 include { SPLIT_FILE as SPLIT_FILE_BC_FASTQ } from "../modules/local/split_file"
 include { SPLIT_FILE as SPLIT_FILE_BC_CSV   } from "../modules/local/split_file"
 include { SPLIT_FILE as SPLIT_FILE_PARSE    } from "../modules/local/split_file"
+include { SPLIT_FILE as SPLIT_FILE_ARGENTAG } from "../modules/local/split_file"
 include { BLAZE                             } from "../modules/local/blaze"
 include { PREEXTRACT_FASTQ                  } from "../modules/local/preextract_fastq.nf"
 include { READ_COUNTS as READ_COUNTS_GENOME } from "../modules/local/read_counts.nf"
@@ -109,6 +110,7 @@ include { CUSTOM_DUMPSOFTWAREVERSIONS                   } from "../modules/nf-co
 include { CAT_CAT                                       } from "../modules/nf-core/cat/cat/main"
 include { CAT_CAT as CAT_CAT_PREEXTRACT                 } from "../modules/nf-core/cat/cat/main"
 include { CAT_CAT as CAT_CAT_BARCODE                    } from "../modules/nf-core/cat/cat/main"
+include { CAT_CAT as CAT_CAT_ARGENTAG                   } from "../modules/nf-core/cat/cat/main"
 include { CAT_FASTQ                                     } from "../modules/nf-core/cat/fastq/main"
 include { CAT_FASTQ as CAT_FASTQ_PARSE                  } from "../modules/nf-core/cat/fastq/main"
 include { paramsSummaryMap                              } from "plugin/nf-schema"
@@ -192,16 +194,17 @@ workflow SCNANOSEQ {
 
         NANOCOMP_FASTQ (
             ch_cat_fastq
-                .collect{it[1]}
-                .map{
-                    [ [ 'id': 'nanocomp_fastq.' ] , it ]
+                //.collect{it[1]}
+                .map{ meta, fastq ->
+                    //[ [ 'id': 'nanocomp_fastq.' ] , it ]
+                    [ [ id: meta.id ?: 'nanocomp_fastq' ], fastq ]
                 }
         )
 
         ch_nanocomp_fastq_html = NANOCOMP_FASTQ.out.report_html
         ch_nanocomp_fastq_txt = NANOCOMP_FASTQ.out.stats_txt
 
-        ch_versions = ch_versions.mix( NANOCOMP_FASTQ.out.versions )
+        ch_versions = ch_versions.mix( NANOCOMP_FASTQ.out.versions.first() )
 
     }
 
@@ -451,12 +454,33 @@ workflow SCNANOSEQ {
 
     } else if (params.platform == "Argentag") {
 
+        // Split fastq files:
+        if (params.split_amount > 0) {
+            SPLIT_FILE_ARGENTAG(ch_trimmed_reads_combined, '.fq', params.split_amount )
+
+            // Temporarily change the meta object so that the id is present on the
+            // fastq to prevent duplicated names
+            SPLIT_FILE_ARGENTAG.out.split_files
+                .transpose()
+                .set { ch_split_argentag }
+
+            ch_versions = ch_versions.mix(SPLIT_FILE_ARGENTAG.out.versions)
+        }
+        
         // Run chimera splitting:
-        ch_chimera_splitted = ARGENTAG_SPLIT(ch_trimmed_reads_combined)
+        ch_chimera_splitted = ARGENTAG_SPLIT(ch_split_argentag)
         ch_versions = ch_versions.mix(ch_chimera_splitted.versions)
 
+        // Concatenate tagged reads per sample:
+        ch_to_concat = ch_chimera_splitted.out.groupTuple(by:0).map{ meta, reads ->
+                                            def read_list = reads.flatten()
+                                            [meta, read_list]}
+        
+        ch_concatenated = CAT_CAT_ARGENTAG(ch_to_concat)
+        ch_versions = ch_versions.mix(ch_concatenated.versions)
+
         // Run taggy demux to generate the corrected fastq:
-        ch_cat_preextract_fastq = ARGENTAG_TAGGY_DEMUX(ch_chimera_splitted.out)
+        ch_cat_preextract_fastq = ARGENTAG_TAGGY_DEMUX(ch_concatenated.file_out)
         ch_versions = ch_versions.mix(ch_cat_preextract_fastq.versions)
 
         // Compress the tagged fastq:
@@ -574,7 +598,7 @@ workflow SCNANOSEQ {
             ch_pretrim_counts.ifEmpty([]),
             ch_postextract_counts.ifEmpty([]),
             ch_corrected_bc_info.collect{it[1]}.ifEmpty([]),
-            PROCESS_LONGREAD_SCRNA_GENOME.out.minimap_flagstat.collect{it[1]}.ifEmpty([]),
+            PROCESS_LONGREAD_SCRNA_GENOME.out.bc_tagged_flagstat.collect{it[1]}.ifEmpty([]),
             PROCESS_LONGREAD_SCRNA_GENOME.out.dedup_flagstat.collect{it[1]}.ifEmpty([])
             )
  
@@ -675,7 +699,7 @@ workflow SCNANOSEQ {
         ch_multiqc_rawqc_files = ch_multiqc_rawqc_files.mix(ch_multiqc_custom_config.collect().ifEmpty([]))
         ch_multiqc_rawqc_files = ch_multiqc_rawqc_files.mix(CUSTOM_DUMPSOFTWAREVERSIONS.out.mqc_yml.collect())
         ch_multiqc_rawqc_files = ch_multiqc_rawqc_files.mix(ch_fastqc_multiqc_pretrim.collect().ifEmpty([]))
-        ch_multiqc_rawqc_files = ch_multiqc_rawqc_files.mix(ch_nanocomp_fastq_txt.collect{it[1]}.ifEmpty([]))
+        ch_multiqc_rawqc_files = ch_multiqc_rawqc_files.mix(ch_nanocomp_fastq_txt.map { meta, txt -> txt }.collect().ifEmpty([]))
         ch_multiqc_rawqc_files = ch_multiqc_rawqc_files.mix(ch_nanoq_pretrim.collect{it[1]}.ifEmpty([]))
         
         //MULTIQC_RAWQC (
