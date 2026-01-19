@@ -1,6 +1,8 @@
 process TAG_BARCODES {
     tag "$meta.id"
-    label 'process_high'
+    label 'process_single'
+    label 'process_long'
+    label 'process_high_memory'
 
     conda "bioconda::pysam=0.19.1"
     container "${ workflow.containerEngine == 'singularity' && !task.ext.singularity_pull_docker_container ?
