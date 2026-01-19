@@ -1,6 +1,7 @@
 process ARGENTAG_SPLIT {
     tag "${meta.id}"
     label 'process_low'
+    label 'process_multiple_cpus'
 
     container 'docker://biocorecrg/taggy_demux:1.1'
 
@@ -23,7 +24,8 @@ process ARGENTAG_SPLIT {
     split.sh \
         ${args} \
         -i ${input_file} \
-        -o ${sample_name}.split.fq
+        -o ${sample_name}.split.fq \
+        -t ${task.cpus}
 
     cat <<-END_VERSIONS > versions.yml
     "${task.process}":

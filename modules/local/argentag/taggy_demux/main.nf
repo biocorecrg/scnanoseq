@@ -1,6 +1,8 @@
 process ARGENTAG_TAGGY_DEMUX {
     tag "${meta.id}"
-    label 'process_medium'
+    label 'process_high'
+    label 'process_long'
+    label 'process_high_cpus'
 
     container 'docker://biocorecrg/taggy_demux:1.1'
 
@@ -16,6 +18,7 @@ process ARGENTAG_TAGGY_DEMUX {
 
     script:
     def args          = task.ext.args ?: ''
+    def sample_name   = input_file.name.replaceAll(/\.fq$/, '')
 
     """
     cp -r /opt/scripts/res .
@@ -25,8 +28,9 @@ process ARGENTAG_TAGGY_DEMUX {
         ${args} \
         --output-dir . \
         ${input_file} \
+        -T ${task.cpus}
 
-    cat *.fastq > ${meta.id}.tagged.fastq
+    cat *.fastq > ${sample_name}.tagged.fastq
 
     cat <<-END_VERSIONS > versions.yml
     "${task.process}":
