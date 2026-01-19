@@ -104,15 +104,16 @@ workflow ALIGN_LONGREADS {
 
             NANOCOMP (
                 BAM_SORT_STATS_SAMTOOLS.out.bam
-                    .collect{it[1]}
-                    .map{
-                        [ [ 'id': 'nanocomp_bam.' ] , it ]
+                    //.collect{it[1]}
+                    .map{ meta, bam ->
+                        //[ [ 'id': 'nanocomp_bam.' ] , it ]
+                        [ [ id: meta.id ?: 'nanocomp_bam' ], bam ]
                     }
             )
-
+ 
             ch_nanocomp_bam_html = NANOCOMP.out.report_html
             ch_nanocomp_bam_txt = NANOCOMP.out.stats_txt
-            ch_versions = ch_versions.mix( NANOCOMP.out.versions )
+            ch_versions = ch_versions.mix( NANOCOMP.out.versions.first() )
         }
 
     emit:
