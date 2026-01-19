@@ -1,5 +1,6 @@
 process PIGZ_UNCOMPRESS {
     label 'process_low'
+    label 'process_shorter'
     //stageInMode 'copy' // this directive can be set in case the original input should be kept
 
     conda "conda-forge::pigz"
