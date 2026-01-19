@@ -61,8 +61,8 @@ do
 
     correct_csv="${sample_name}.corrected_bc_umi.tsv"
     data="$(basename $sample_name)"
-
-    mapped_stats="${sample_name}.${type}.minimap.flagstat"
+    
+    mapped_stats="${sample_name}.${type}.tagged.flagstat"
     dedup_stats="${sample_name}.${type}.umitools_dedup.flagstat"
     
     ####################
