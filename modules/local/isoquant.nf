@@ -56,6 +56,21 @@ process ISOQUANT {
 
     """
     export HOME=\$(pwd)
+    
+    # Check if this GTF split contains both 'gene' and 'transcript' features
+    COMPLETE_GTF_FLAG=""
+    if [ -n "$gtf" ]; then
+        # Extract unique feature types from third column
+        FEATURES=\$(grep -v '^#' $gtf | awk '{print \$3}' | sort -u)
+    
+        # Check if both 'gene' and 'transcript' are present
+        HAS_GENE=\$(echo "\$FEATURES" | grep -c '^gene\$' || true)
+        HAS_TRANSCRIPT=\$(echo "\$FEATURES" | grep -c '^transcript\$' || true)
+    
+        if [ "\$HAS_GENE" -gt 0 ] && [ "\$HAS_TRANSCRIPT" -gt 0 ]; then
+            COMPLETE_GTF_FLAG="--complete_genedb"
+        fi
+    fi
 
     isoquant.py ${args} \\
         --threads $task.cpus \\
@@ -64,6 +79,7 @@ process ISOQUANT {
         --output ${prefix} \\
         ${ref_flag} \\
         ${gtf_flag} \\
+        \$COMPLETE_GTF_FLAG \\
         ${group_flag}
 
     cat <<-END_VERSIONS > versions.yml
