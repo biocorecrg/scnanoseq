@@ -89,9 +89,9 @@ workflow QCFASTQ_NANOPLOT_FASTQC {
     nanoq_version    = Channel.empty()
     
     if (!skip_nanoq){
-        NANOQ ( ch_fastq, 'fastq.gz' )
+        NANOQ ( ch_fastq )
         nanoq_stats     = NANOQ.out.stats
-        nanoq_reads     = NANOQ.out.reads
+        //nanoq_reads     = NANOQ.out.reads
         nanoq_version   = NANOQ.out.versions
     }
     
@@ -114,7 +114,7 @@ workflow QCFASTQ_NANOPLOT_FASTQC {
     fastqc_multiqc
 
     nanoq_stats
-    nanoq_reads
+    //nanoq_reads
     nanoq_version
 
 }
