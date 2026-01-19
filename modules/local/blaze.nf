@@ -1,7 +1,8 @@
 process BLAZE {
     tag "$meta.id"
-    label 'process_medium'
+    label 'process_high'
     label 'process_long'
+    label 'process_high_memory'
 
     conda "biconda::blaze2=2.5.1"
 
