@@ -1,6 +1,7 @@
 process FASTQC {
     tag "${meta.id}"
     label 'process_medium'
+    label 'process_long'
 
     conda "${moduleDir}/environment.yml"
     container "${ workflow.containerEngine == 'singularity' && !task.ext.singularity_pull_docker_container ?
@@ -38,7 +39,7 @@ process FASTQC {
         [ -f "\${new_name}" ] || ln -s \$old_name \$new_name
     done
 
-    export FASTQC_JAVA_OPTS="-Xmx12g"
+    export FASTQC_JAVA_OPTS="-Xmx24g"
 
     fastqc \\
         ${args} \\
