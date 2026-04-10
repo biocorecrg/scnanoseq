@@ -78,7 +78,7 @@ workflow PROCESS_LONGREAD_SCRNA {
 
         } else if (platform == 'Parse') {
             ADD_TAGS_PARSE(ALIGN_LONGREADS.out.sorted_bam).set {ch_tagged_bam}
-            ch_versions = ch_versions.mix(ADD_TAGS_ARGENTAG.out.versions)
+            ch_versions = ch_versions.mix(ADD_TAGS_PARSE.out.versions)
 
         } else if (platform == 'Argentag') {
             ADD_TAGS_ARGENTAG(ALIGN_LONGREADS.out.sorted_bam).set {ch_tagged_bam}
