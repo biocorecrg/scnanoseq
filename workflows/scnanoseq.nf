@@ -101,7 +101,6 @@ include { PROCESS_LONGREAD_SCRNA as PROCESS_LONGREAD_SCRNA_TRANSCRIPT } from "..
 include { PIGZ_UNCOMPRESS as GUNZIP_FASTQ               } from "../modules/nf-core/pigz/uncompress/main"
 include { PIGZ_UNCOMPRESS as GUNZIP_WHITELIST           } from "../modules/nf-core/pigz/uncompress/main"
 include { PIGZ_COMPRESS as PIGZ_COMPRESS_10X            } from "../modules/nf-core/pigz/compress/main"
-include { PIGZ_COMPRESS as PIGZ_COMPRESS_PARSE          } from "../modules/nf-core/pigz/compress/main"
 include { PIGZ_COMPRESS as PIGZ_COMPRESS_ARGENTAG       } from "../modules/nf-core/pigz/compress/main"
 include { NANOCOMP as NANOCOMP_FASTQ                    } from "../modules/nf-core/nanocomp/main"
 include { MULTIQC as MULTIQC_RAWQC                      } from "../modules/nf-core/multiqc/main"
@@ -445,11 +444,7 @@ workflow SCNANOSEQ {
         ch_cat_preextract_fastq = SPLITPIPE_PRE(ch_concatenated.reads, spipe_mock_genome_dir, spipe_params_file)
         ch_versions = ch_versions.mix(ch_cat_preextract_fastq.versions)
 
-        // Compress the tagged fastq:
-        PIGZ_COMPRESS_PARSE (ch_cat_preextract_fastq.out )
-        ch_extracted_fastq = PIGZ_COMPRESS_PARSE.out.archive
-        ch_versions = ch_versions.mix(PIGZ_COMPRESS_PARSE.out.versions)
-
+        ch_extracted_fastq = ch_cat_preextract_fastq.out
         ch_corrected_bc_info = Channel.empty()
 
     } else if (params.platform == "Argentag") {
