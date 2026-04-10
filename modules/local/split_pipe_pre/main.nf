@@ -11,7 +11,7 @@ process SPLITPIPE_PRE {
     path(parfile_parse)
     
     output:
-    tuple val(meta_updated), path("${meta.id}/process/barcode_head.fastq.gz")               , emit: out
+    tuple val(meta_updated), path("${meta.id}.fastq.gz")                                    , emit: out
     path  "versions.yml"                                                                    , emit: versions
 
     when:
@@ -35,6 +35,8 @@ process SPLITPIPE_PRE {
        --output_dir ${prefix} \
        ${parfile} \
        --nthreads ${task.cpus}
+    
+    mv ${meta.id}/process/barcode_head.fastq.gz ${meta.id}.fastq.gz
   
     cat <<-END_VERSIONS > versions.yml
     "${task.process}":
