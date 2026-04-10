@@ -12,7 +12,12 @@ def extract_tags(read_name, delimiter):
     """Extract the cell barcode from read name using the given delimiter."""
     
     try:
-        return read_name.split(delimiter)[-2], read_name.split(delimiter)[-1]
+        if delimiter == "__":
+            cb_index = -3
+        else:
+            cb_index = -2
+        
+        return read_name.split(delimiter)[cb_index], read_name.split(delimiter)[-1]
 
     except Exception:
         return None
