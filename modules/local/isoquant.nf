@@ -1,6 +1,7 @@
 process ISOQUANT {
     tag "$meta.id"
     label 'process_medium'
+    label 'error_retry'
 
     conda "bioconda::isoquant=3.6.1"
     container "${ workflow.containerEngine == 'singularity' && !task.ext.singularity_pull_docker_container ?
