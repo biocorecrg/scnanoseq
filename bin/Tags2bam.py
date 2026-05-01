@@ -13,7 +13,7 @@ def extract_tags(read_name, delimiter):
     
     try:
         if delimiter == "__":
-            cb_index = -3
+            cb_index = 0
         else:
             cb_index = -2
         
