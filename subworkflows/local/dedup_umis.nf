@@ -7,6 +7,7 @@
 //
 include { BAMTOOLS_SPLIT                          } from '../../modules/nf-core/bamtools/split/main'
 include { UMITOOLS_DEDUP                          } from '../../modules/nf-core/umitools/dedup/main'
+include { PICARD_MARKDUPLICATES                   } from '../../modules/nf-core/picard/markduplicates/main'
 include { SAMTOOLS_INDEX as SAMTOOLS_INDEX_DEDUP  } from '../../modules/nf-core/samtools/index/main'
 include { SAMTOOLS_INDEX as SAMTOOLS_INDEX_MERGED } from '../../modules/nf-core/samtools/index/main'
 include { SAMTOOLS_MERGE                          } from '../../modules/nf-core/samtools/merge/main'
@@ -33,13 +34,13 @@ workflow DEDUP_UMIS {
         fasta_delimiter // str: Delimiter character used in the sequence id in fasta
 
     main:
-        ch_versions = Channel.empty()
+        ch_versions = channel.empty()
 
-        ch_undedup_bam = Channel.empty()
-        ch_undedup_bai = Channel.empty()
+        ch_undedup_bam = channel.empty()
+        ch_undedup_bai = channel.empty()
 
         if (split_bam) {
-            ch_split_bam = Channel.empty()
+            ch_split_bam = channel.empty()
 
             if (genome_aligned) {
                 //
@@ -111,8 +112,8 @@ workflow DEDUP_UMIS {
             ch_undedup_bai = in_bai
         }
 
-        ch_dedup_bam = Channel.empty()
-        ch_dedup_bai = Channel.empty()
+        ch_dedup_bam = channel.empty()
+        ch_dedup_bai = channel.empty()
 
         if (dedup_tool == 'umitools'){
             //

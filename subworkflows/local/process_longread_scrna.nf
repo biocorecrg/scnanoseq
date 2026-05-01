@@ -46,7 +46,7 @@ workflow PROCESS_LONGREAD_SCRNA {
         skip_dedup               // bool: Skip deduplication
 
     main:
-        ch_versions = Channel.empty()
+        ch_versions = channel.empty()
 
         //
         // SUBWORKFLOW: Align long Read Data
@@ -103,10 +103,10 @@ workflow PROCESS_LONGREAD_SCRNA {
         )
         ch_versions = ch_versions.mix(SAMTOOLS_FLAGSTAT_TAGGED.out.versions)
 
-        ch_bam = Channel.empty()
-        ch_bai = Channel.empty()
-        ch_flagstat = Channel.empty()
-        ch_idxstats = Channel.empty()
+        ch_bam = channel.empty()
+        ch_bai = channel.empty()
+        ch_flagstat = channel.empty()
+        ch_idxstats = channel.empty()
 
         if (!skip_dedup) {
             DEDUP_UMIS (
@@ -127,8 +127,8 @@ workflow PROCESS_LONGREAD_SCRNA {
             ch_versions = DEDUP_UMIS.out.versions
 
             // QC: base proportion belonging to different kind of features:
-            rrnas = RRNA_FOR_COLLECTRNASEQMETRICS(fai, gtf).rRRNAs.map{ it[1] }
-            rnaseq_metrics = PICARD_COLLECTRNASEQMETRICS(ch_bam, picard_refflat, fasta.map{ it[1] }, rrnas)
+            rrnas = RRNA_FOR_COLLECTRNASEQMETRICS(fai, gtf).rRRNAs.map{ it -> it[1] }
+            rnaseq_metrics = PICARD_COLLECTRNASEQMETRICS(ch_bam, picard_refflat, fasta.map{ it -> it[1] }, rrnas)
 
         } else {
 
@@ -137,7 +137,7 @@ workflow PROCESS_LONGREAD_SCRNA {
             ch_flagstat = SAMTOOLS_FLAGSTAT_TAGGED.out.flagstat
                 .map{
                     meta, flagstat ->
-                        id = ['id': meta.id]
+                        def id = ['id': meta.id]
                     [id, flagstat]
                 }
 
@@ -146,8 +146,8 @@ workflow PROCESS_LONGREAD_SCRNA {
         // SUBWORKFLOW: Quantify Features
         //
 
-        ch_gene_qc_stats = Channel.empty()
-        ch_transcript_qc_stats = Channel.empty()
+        ch_gene_qc_stats = channel.empty()
+        ch_transcript_qc_stats = channel.empty()
 
         if (quant_list.contains("oarfish")) {
             QUANTIFY_SCRNA_OARFISH (

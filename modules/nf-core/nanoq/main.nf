@@ -10,11 +10,11 @@ process NANOQ {
 
     input:
     tuple val(meta), path(ontreads)
-    //val(output_format) //One of the following: fastq, fastq.gz, fastq.bz2, fastq.lzma, fasta, fasta.gz, fasta.bz2, fasta.lzma.
+    val(output_format) //One of the following: fastq, fastq.gz, fastq.bz2, fastq.lzma, fasta, fasta.gz, fasta.bz2, fasta.lzma.
 
     output:
     tuple val(meta), path("*.{stats,json}")            , emit: stats
-    //tuple val(meta), path("${prefix}.${output_format}"), emit: reads
+    tuple val(meta), path("${prefix}.${output_format}"), emit: reads
     path "versions.yml"                                , emit: versions
 
     when:

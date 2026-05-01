@@ -4,54 +4,22 @@
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 */
 
-// Whitelist
-if (params.whitelist) {
-    blaze_whitelist = params.whitelist
+// Helper function - this is OK at top level
+def getWhitelistFile() {
+    if (params.whitelist) {
+        return params.whitelist
+    }
+    
+    def whitelist_map = [
+        '10X_3v3': "$baseDir/assets/whitelist/3M-february-2018.zip",
+        '10X_5v2': "$baseDir/assets/whitelist/737K-august-2016.txt.zip",
+        '10X_3v4': "$baseDir/assets/whitelist/3M-3pgex-may-2023_TRU.txt.zip",
+        '10X_5v3': "$baseDir/assets/whitelist/3M-5pgex-jan-2023.txt.zip"
+    ]
+    
+    def whitelist_path = whitelist_map[params.barcode_format]
+    return whitelist_path ? file(whitelist_path) : null
 }
-else {
-    if (params.barcode_format.equals("10X_3v3")) {
-        blaze_whitelist = file("$baseDir/assets/whitelist/3M-february-2018.zip")
-    }
-    else if (params.barcode_format.equals("10X_5v2")) {
-        blaze_whitelist = file("$baseDir/assets/whitelist/737K-august-2016.txt.zip")
-    }
-    else if (params.barcode_format.equals("10X_3v4")) {
-        blaze_whitelist = file("$baseDir/assets/whitelist/3M-3pgex-may-2023_TRU.txt.zip")
-    }
-    else if (params.barcode_format.equals("10X_5v3")) {
-        blaze_whitelist = file("$baseDir/assets/whitelist/3M-5pgex-jan-2023.txt.zip")
-    }
-}
-
-// Quantifiers
-
-// Associate the quantifiers with the kind of alignment needed
-GENOME_QUANT_OPTS = [ 'isoquant' ]
-TRANSCRIPT_QUANT_OPTS = [ 'oarfish' ]
-
-genome_quants = []
-transcript_quants = []
-for (quantifier in params.quantifier.split(',')) {
-    if (quantifier in GENOME_QUANT_OPTS) {
-        genome_quants.add(quantifier)
-    }
-
-    if (quantifier in TRANSCRIPT_QUANT_OPTS) {
-        transcript_quants.add(quantifier)
-    }
-}
-
-
-/*
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-    CONFIG FILES
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-*/
-
-ch_multiqc_config                       = Channel.fromPath("$projectDir/assets/multiqc_config.yml", checkIfExists: true)
-ch_multiqc_custom_config                = params.multiqc_config ? Channel.fromPath( params.multiqc_config, checkIfExists: true ) : Channel.empty()
-ch_multiqc_logo                         = params.multiqc_logo   ? Channel.fromPath( params.multiqc_logo, checkIfExists: true ) : Channel.empty()
-ch_multiqc_custom_methods_description   = params.multiqc_methods_description ? file(params.multiqc_methods_description, checkIfExists: true) : file("$projectDir/assets/methods_description_template.yml", checkIfExists: true)
 
 /*
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -135,10 +103,40 @@ workflow SCNANOSEQ {
 
     take:
     ch_samplesheet // channel: samplesheet read in from --input
+
     main:
 
-    ch_versions = Channel.empty()
-    ch_multiqc_report = Channel.empty()
+    /// Initialize variables
+    def GENOME_QUANT_OPTS = [ 'isoquant' ]
+    def TRANSCRIPT_QUANT_OPTS = [ 'oarfish' ]
+
+    def blaze_whitelist = getWhitelistFile()
+
+    def quantifiers = params.quantifier.split(',').collect { it.trim() }
+
+    // Now GENOME_QUANT_OPTS and TRANSCRIPT_QUANT_OPTS should be visible
+    def genome_quants = quantifiers.findAll { quantifier ->
+        quantifier in GENOME_QUANT_OPTS
+    }
+
+    def transcript_quants = quantifiers.findAll { quantifier ->
+        quantifier in TRANSCRIPT_QUANT_OPTS
+    }
+
+    log.info "DEBUG: params.quantifier = ${params.quantifier}"
+    log.info "DEBUG: quantifiers = ${quantifiers}"
+    log.info "DEBUG: genome_quants = ${genome_quants}"
+    log.info "DEBUG: transcript_quants = ${transcript_quants}"
+
+    //// Config file declarations:
+    ch_multiqc_config                       = channel.fromPath("$projectDir/assets/multiqc_config.yml", checkIfExists: true)
+    ch_multiqc_custom_config                = params.multiqc_config ? channel.fromPath( params.multiqc_config, checkIfExists: true ) : Channel.empty()
+    ch_multiqc_logo                         = params.multiqc_logo   ? channel.fromPath( params.multiqc_logo, checkIfExists: true ) : Channel.empty()
+    ch_multiqc_custom_methods_description   = params.multiqc_methods_description ? file(params.multiqc_methods_description, checkIfExists: true) : file("$projectDir/assets/methods_description_template.yml", checkIfExists: true)
+
+
+    ch_versions = channel.empty()
+    ch_multiqc_report = channel.empty()
 
     //
     // SUBWORKFLOW: Read in samplesheet, validate and stage input files
@@ -167,7 +165,7 @@ workflow SCNANOSEQ {
     // SUBWORKFLOW: Fastq QC with Nanoplot, ToulligQC and FastQC - pre-trim QC
     //
 
-    ch_fastqc_multiqc_pretrim = Channel.empty()
+    ch_fastqc_multiqc_pretrim = channel.empty()
     if (!params.skip_qc){
 
         FASTQC_NANOPLOT_PRE_TRIM ( ch_cat_fastq, params.skip_nanoplot, params.skip_toulligqc, params.skip_fastqc, params.skip_nanoq )
@@ -187,8 +185,8 @@ workflow SCNANOSEQ {
     // MODULE: NanoComp for FastQ files
     //
 
-    ch_nanocomp_fastq_html = Channel.empty()
-    ch_nanocomp_fastq_txt = Channel.empty()
+    ch_nanocomp_fastq_html = channel.empty()
+    ch_nanocomp_fastq_txt = channel.empty()
     if (!params.skip_qc && !params.skip_fastq_nanocomp) {
 
         NANOCOMP_FASTQ (
@@ -230,8 +228,8 @@ workflow SCNANOSEQ {
     //
 
     // come back to this once intron work is finished (likely input will be fine)
-    ch_pred = Channel.empty()
-    ch_rseqc_bed = Channel.empty()
+    ch_pred = channel.empty()
+    ch_rseqc_bed = channel.empty()
     if (!params.skip_qcs) {
         UCSC_GTFTOGENEPRED( gtf )
         ch_pred = UCSC_GTFTOGENEPRED.out.genepred
@@ -253,8 +251,8 @@ workflow SCNANOSEQ {
     //
     // MODULE: Trim and filter reads
     //
-    ch_fastqc_multiqc_postrim = Channel.empty()
-    ch_trimmed_reads_combined = Channel.empty()
+    ch_fastqc_multiqc_postrim = channel.empty()
+    ch_trimmed_reads_combined = channel.empty()
 
     // NOTE: this block of code, doesn't have much sense as it splits and later concatenates without any filtering?
     if (!params.skip_trimming){
@@ -445,7 +443,7 @@ workflow SCNANOSEQ {
         ch_versions = ch_versions.mix(ch_cat_preextract_fastq.versions)
 
         ch_extracted_fastq = ch_cat_preextract_fastq.out
-        ch_corrected_bc_info = Channel.empty()
+        ch_corrected_bc_info = channel.empty()
 
     } else if (params.platform == "Argentag") {
 
@@ -483,7 +481,7 @@ workflow SCNANOSEQ {
         ch_extracted_fastq = PIGZ_COMPRESS_ARGENTAG.out.archive
         ch_versions = ch_versions.mix(PIGZ_COMPRESS_ARGENTAG.out.versions)
 
-        ch_corrected_bc_info = Channel.empty()
+        ch_corrected_bc_info = channel.empty()
 
     } else {
         exit 1, "Single cell platform not recognized. You can choose either 10X, Parse or Argentag.\n"
@@ -492,8 +490,8 @@ workflow SCNANOSEQ {
     //
     // SUBWORKFLOW: Fastq QC with Nanoplot and FastQC - post-extract QC
     //
-    ch_fastqc_multiqc_postextract = Channel.empty()
-    ch_read_counts = Channel.empty()
+    ch_fastqc_multiqc_postextract = channel.empty()
+    ch_read_counts = channel.empty()
     if (!params.skip_qc){
         FASTQC_NANOPLOT_POST_EXTRACT ( ch_extracted_fastq, params.skip_nanoplot, params.skip_toulligqc, params.skip_fastqc, params.skip_nanoq )
         
@@ -509,9 +507,9 @@ workflow SCNANOSEQ {
         // MODULE: Generate read counts
         //
 
-        ch_pretrim_counts = Channel.empty()
-        ch_posttrim_counts = Channel.empty()
-        ch_postextract_counts = Channel.empty()
+        ch_pretrim_counts = channel.empty()
+        ch_posttrim_counts = channel.empty()
+        ch_postextract_counts = channel.empty()
         if (!params.skip_fastqc){
             ch_pretrim_counts = ch_fastqc_multiqc_pretrim.collect{it[0]}
             ch_posttrim_counts = ch_fastqc_multiqc_postrim.collect{it[0]}
@@ -530,7 +528,7 @@ workflow SCNANOSEQ {
     // SUBWORKFLOW: Align Long Read Data
     //
 
-    ch_multiqc_finalqc_files = Channel.empty()
+    ch_multiqc_finalqc_files = channel.empty()
 
     if (genome_quants){
         PROCESS_LONGREAD_SCRNA_GENOME(
@@ -618,12 +616,14 @@ workflow SCNANOSEQ {
             transcript_fai,
             gtf,
             ch_extracted_fastq,
+            ch_refflat,
             ch_rseqc_bed,
             ch_corrected_bc_info,
             transcript_quants,
             params.dedup_tool,
             false, // Indicates this is NOT genome aligned
             params.fasta_delimiter,
+            params.platform,
             params.skip_save_minimap2_index,
             params.skip_qc,
             true, // RSeQC does not work well with transcriptome alignments
@@ -689,7 +689,7 @@ workflow SCNANOSEQ {
         // MODULE: MultiQC for raw data
         //
 
-        ch_multiqc_rawqc_files = Channel.empty()
+        ch_multiqc_rawqc_files = channel.empty()
         ch_multiqc_rawqc_files = ch_multiqc_rawqc_files.mix(ch_multiqc_config)
         ch_multiqc_rawqc_files = ch_multiqc_rawqc_files.mix(ch_multiqc_custom_config.collect().ifEmpty([]))
         ch_multiqc_rawqc_files = ch_multiqc_rawqc_files.mix(CUSTOM_DUMPSOFTWAREVERSIONS.out.mqc_yml.collect())
@@ -710,7 +710,7 @@ workflow SCNANOSEQ {
         // MODULE: MultiQC for final pipeline outputs
         //
         summary_params = paramsSummaryMap(workflow, parameters_schema: "nextflow_schema.json")
-        ch_workflow_summary    = Channel.value(paramsSummaryMultiqc(summary_params))
+        ch_workflow_summary    = channel.value(paramsSummaryMultiqc(summary_params))
 
         ch_multiqc_finalqc_files = ch_multiqc_finalqc_files.mix(ch_multiqc_config)
         ch_multiqc_finalqc_files = ch_multiqc_finalqc_files.mix(ch_multiqc_custom_config.collect().ifEmpty([]))

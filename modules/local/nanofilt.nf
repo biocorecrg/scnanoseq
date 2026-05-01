@@ -37,7 +37,6 @@ process NANOFILT {
 
     stub:
     """
-    touch ${prefix}.filtered.fastq
 
     cat <<-END_VERSIONS > versions.yml
     "${task.process}":

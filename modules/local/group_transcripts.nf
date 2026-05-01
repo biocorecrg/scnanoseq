@@ -9,7 +9,7 @@ process GROUP_TRANSCRIPTS {
 
     input:
     tuple val(meta), path(fasta)
-    tuple val(meta), path(gtf)
+    tuple val(meta2), path(gtf)
     val delimiter
 
     output:

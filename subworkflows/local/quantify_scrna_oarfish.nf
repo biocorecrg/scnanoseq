@@ -16,7 +16,7 @@ workflow QUANTIFY_SCRNA_OARFISH {
         skip_seurat
 
     main:
-        ch_versions = Channel.empty()
+        ch_versions = channel.empty()
 
         //
         // MODULE: Samtools Sort
@@ -38,7 +38,7 @@ workflow QUANTIFY_SCRNA_OARFISH {
                     .join(OARFISH.out.mtx, by: [0])
                     .map{
                         meta,features,barcodes,mtx ->
-                            new_meta = [ 'id' : meta.id ]
+                            def new_meta = [ 'id' : meta.id ]
                             [ new_meta, [ features, barcodes, mtx ]]
                     },
                 in_flagstat,
